@@ -113,7 +113,7 @@ run_coprocess(const char *input, char **output,
 		 * descriptors. */
 		dup2(ipipe[0], STDIN_FILENO);
 		dup2(opipe[1], STDOUT_FILENO);
-		for(i = 0; i < sysconf(_SC_OPEN_MAX); i++) {
+		for (i = 0; i < sysconf(_SC_OPEN_MAX); i++) {
 			if ((i != STDIN_FILENO) && (i != STDOUT_FILENO)) {
 				close(i);
 			}
@@ -121,7 +121,7 @@ run_coprocess(const char *input, char **output,
 		/* Convert the varargs list into a regular array of strings. */
 		va_start(ap, command);
 		args[0] = strdup(command);
-		for(i = 1; i < ((sizeof(args) / sizeof(args[0])) - 1); i++) {
+		for (i = 1; i < ((sizeof(args) / sizeof(args[0])) - 1); i++) {
 			tmp = va_arg(ap, const char*);
 			if (tmp == NULL) {
 				break;
@@ -145,7 +145,7 @@ run_coprocess(const char *input, char **output,
 
 	/* Read data output until we run out of stuff to read. */
 	i = read(opipe[0], buf, sizeof(buf));
-	while((i != 0) && (i != -1)) {
+	while ((i != 0) && (i != -1)) {
 		char *tmp;
 		/* Resize the buffer to hold the data. */
 		tmp = realloc(buffer, buffer_size + i + 1);
@@ -280,7 +280,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* Parse arguments.  We don't understand many, so no sense in breaking
 	 * this into a separate function. */
-	for(i = 0; i < argc; i++) {
+	for (i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "debug") == 0) {
 			debug = 1;
 			continue;
@@ -586,7 +586,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* Parse arguments.  We don't understand many, so no sense in breaking
 	 * this into a separate function. */
-	for(i = 0; i < argc; i++) {
+	for (i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "debug") == 0) {
 			debug = 1;
 			continue;
