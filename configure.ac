@@ -67,9 +67,21 @@ AS_HELP_STRING(--enable-warnings,[Use various gcc-specific warnings.]),
 	#CFLAGS="${CFLAGS} -Wunused-value"
 )
 
-PKG_CHECK_MODULES(GLIB,glib-2.0)
+if pkg-config glib-2.0 ; then
+	PKG_CHECK_MODULES(GLIB,glib-2.0)
+else
+	GLIB_CFLAGS=`glib-config --cflags`
+	GLIB_LIBS=`glib-config --libs`
+fi
+AC_SUBST(GLIB_CFLAGS)
+AC_SUBST(GLIB_LIBS)
 if pkg-config openssl ; then
-	PKG_CHECK_MODULES(OPENSSL,openssl)
+	if pkg-config openssl ; then
+		PKG_CHECK_MODULES(OPENSSL,openssl)
+	fi
+else
+	OPENSSL_CFLAGS=
+	OPENSSL_LIBS="-lssl -lcrypto -lcrypt -ldl"
 fi
 AC_SUBST(OPENSSL_CFLAGS)
 AC_SUBST(OPENSSL_LIBS)
