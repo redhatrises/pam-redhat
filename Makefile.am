@@ -1,14 +1,34 @@
-SUBDIRS = \
-	lib \
-	pam_chroot \
-	pam_console \
-	pam_localuser \
-	pam_postgresok \
-	pam_rps \
-	pam_stack \
-	pam_succeed_if \
-	pam_timestamp \
-	pam_xauth
+SUBDIRS = lib
+if BUILD_PAM_CHROOT
+SUBDIRS += pam_chroot
+endif
+if BUILD_PAM_CONSOLE
+SUBDIRS += pam_console
+endif
+if BUILD_PAM_LOCALUSER
+SUBDIRS += pam_localuser
+endif
+if BUILD_PAM_POSTGRESOK
+SUBDIRS += pam_postgresok
+endif
+if BUILD_PAM_RPS
+SUBDIRS += pam_rps
+endif
+if BUILD_PAM_SASLAUTHD
+SUBDIRS += pam_saslauthd
+endif
+if BUILD_PAM_STACK
+SUBDIRS += pam_stack
+endif
+if BUILD_PAM_SUCCEED_IF
+SUBDIRS += pam_succeed_if
+endif
+if BUILD_PAM_TIMESTAMP
+SUBDIRS += pam_timestamp
+endif
+if BUILD_PAM_XAUTH
+SUBDIRS += pam_xauth
+endif
 
 CVSTAG=$(shell echo pam-redhat-$(VERSION) | sed s,\\.,-,g)
 CVS_ROOT=$(shell cat CVS/Root)
