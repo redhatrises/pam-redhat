@@ -51,6 +51,7 @@ libmisc_retry_read(int fd, void *buf, size_t length)
 		i = read(fd, p, length - (p - (unsigned char*)buf));
 		switch (i) {
 		case 0:
+			return p - (unsigned char*)buf;
 			break;
 		case -1:
 			switch (errno) {
@@ -85,6 +86,7 @@ libmisc_retry_write(int fd, const void *buf, size_t length)
 		i = write(fd, p, length - (p - (unsigned char*)buf));
 		switch (i) {
 		case 0:
+			return p - (unsigned char*)buf;
 			break;
 		case -1:
 			switch (errno) {
