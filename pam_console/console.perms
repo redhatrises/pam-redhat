@@ -29,8 +29,9 @@
 <jaz>=/mnt/jaz*
 <zip>=/mnt/pocketzip* /mnt/zip*
 <ls120>=/dev/ls120 /mnt/ls120*
-<scanner>=/dev/scanner
-<camera>=/mnt/camera*
+<scanner>=/dev/scanner /dev/usb/scanner*
+<rio500>=/dev/usb/rio500
+<camera>=/mnt/camera* /dev/usb/dc2xx* /dev/usb/mdc800*
 <memstick>=/mnt/memstick*
 <flash>=/mnt/flash*
 <diskonkey>=/mnt/diskonkey*
@@ -65,6 +66,7 @@
 <console>  0600 <v4l>        0600 root
 <console>  0700 <gpm>	     0700 root
 <console>  0600 <mainboard>  0600 root
+<console>  0600 <rio500>     0600 root
 
 <xconsole> 0600 /dev/console 0600 root.root
 <xconsole> 0600 <dri>	     0600 root
