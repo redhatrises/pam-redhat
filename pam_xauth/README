@@ -2,16 +2,8 @@ pam_xauth:
 	Forward xauth cookies from user to user, normally used by su, sudo, or
 	userhelper.
 
- RECOGNIZED ARGUMENTS:
-        debug		write debugging messages to syslog
-	logpub		log all messages INSECURELY for ease of debugging
-	systemuser=	highest user id assigned to system users, defaults
-			to 499
-	xauthpath=	the path to the xauth program, by default
-			/usr/X11R6/bin/xauth
-
 RECOGNIZED ARGUMENTS:
-	debug		write debugging messages to syslog
+        debug		write debugging messages to syslog
 	logpub		log all messages INSECURELY for ease of debugging
 	systemuser=	highest user id assigned to system users, defaults
 			to 499
