@@ -19,25 +19,29 @@
 <xconsole>=:[0-9]\.[0-9] :[0-9]
 
 # device classes -- these are shell-style globs
-<floppy>=/dev/fd[0-1]*
+<floppy>=/dev/fd[0-1]* \
+	 /dev/floppy/*
 <sound>=/dev/dsp* /dev/audio* /dev/midi* \
-	/dev/mixer* /dev/sequencer
+	/dev/mixer* /dev/sequencer \
+	/dev/sound/*
 <cdrom>=/dev/cdrom* /dev/cdwriter*
 <pilot>=/dev/pilot
 <jaz>=/dev/jaz
 <zip>=/dev/zip
 <scanner>=/dev/scanner
-<fb>=/dev/fb /dev/fb[0-9]*
+<fb>=/dev/fb /dev/fb[0-9]* \
+     /dev/fb/*
 <kbd>=/dev/kbd
 <joystick>=/dev/js*
-<v4l>=/dev/video* /dev/radio* /dev/winradio* /dev/vtx* /dev/vbi*
+<v4l>=/dev/video* /dev/radio* /dev/winradio* /dev/vtx* /dev/vbi* \
+      /dev/v4l/*
 <gpm>=/dev/gpmctl
 <dri>=/dev/dri/* /dev/nvidia*
 
 # permission definitions
 <console>  0660 <floppy>    0660 root.floppy
-<console>  0600 <sound>     0640 root.sys
-<console>  0600 <cdrom>     0600 root.disk
+<console>  0600 <sound>     0600 root
+<console>  0600 <cdrom>     0660 root.disk
 <console>  0600 <pilot>     0660 root.tty
 <console>  0600 <jaz>       0660 root.disk
 <console>  0600 <zip>       0660 root.disk
