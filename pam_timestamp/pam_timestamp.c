@@ -41,7 +41,8 @@
 #define PAM_SM_AUTH
 #define PAM_SM_SESSION
 
-#include "../../_pam_aconf.h"
+#include "../config.h"
+#include "../lib/libmisc.h"
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -57,10 +58,8 @@
 #include <unistd.h>
 #include "hmacsha1.h"
 
-#include "../../_pam_aconf.h"
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
-#include <security/_pam_modutil.h>
 
 /* The default timeout we use is 5 minutes, which matches the sudo default
  * for the timestamp_timeout parameter. */
@@ -238,7 +237,7 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 	}
 	if ((ruser == NULL) || (strlen(ruser) == 0)) {
 		/* Barring that, use the current RUID. */
-		pwd = _pammodutil_getpwuid(pamh, getuid());
+		pwd = libmisc_getpwuid(pamh, getuid());
 		if (pwd != NULL) {
 			if (strlen(pwd->pw_name) < sizeof(scratch)) {
 				strncpy(scratch, pwd->pw_name, sizeof(scratch));

@@ -37,6 +37,9 @@
  */
 /* See http://www.itl.nist.gov/fipspubs/fip180-1.htm for descriptions. */
 
+#ident "$Id$"
+
+#include "../config.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <netinet/in.h>
