@@ -11,6 +11,7 @@
 #include <string.h>
 #include <glib.h>
 #include <syslog.h>
+#include "pam_console.h"
 
 int lineno;
 char *filename;

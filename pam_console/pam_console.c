@@ -262,7 +262,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
     struct passwd *pwd;
     char *lockfile = NULL;
     char *appsfile = NULL;
-    char *service;
+    const char *service;
     int ret = PAM_AUTH_ERR;
 
     D(("called."));
@@ -282,7 +282,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
     lockfile = _do_malloc(strlen(consolerefs) + strlen(pwd->pw_name) + 2);
     sprintf(lockfile, "%s%s", consolerefs, pwd->pw_name); /* trusted data */
 
-    pam_get_item(pamh, PAM_SERVICE, CAST_ME_HARDER &service);
+    libmisc_get_string_item(pamh, PAM_SERVICE, &service);
     appsfile = _do_malloc(strlen(consoleapps) + strlen(service) + 2);
     sprintf(appsfile, "%s%s", consoleapps, service); /* trusted data */
 
@@ -326,14 +326,17 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     int got_console = 0;
     int count = 0;
     int ret = PAM_SESSION_ERR;
-    const char *username;
+    const char *username, *user_prompt;
     char *lockfile;
-    char *tty;
+    const char *tty;
 
     D(("called."));
     _pam_log(LOG_ERR, TRUE, "pam_console open_session");
     _args_parse(argc, argv);
-    pam_get_item(pamh, PAM_USER, (const void**) &username);
+    user_prompt = "login: ";
+    libmisc_get_string_item(pamh, PAM_USER_PROMPT, &user_prompt);
+    username = NULL;
+    pam_get_user(pamh, &username, user_prompt);
     _pam_log(LOG_DEBUG, TRUE, "user is \"%s\"",
 	     username ? username : "(null)");
     if (!username || !username[0]) {
@@ -345,7 +348,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
         _pam_log(LOG_DEBUG, TRUE, "user \"%s\" is root", username);
 	return PAM_SUCCESS;
     }
-    pam_get_item(pamh, PAM_TTY, CAST_ME_HARDER &tty);
+    libmisc_get_string_item(pamh, PAM_TTY, &tty);
     if (!tty || !tty[0]) {
         _pam_log(LOG_ERR, TRUE, "TTY not defined");
 	return PAM_SESSION_ERR;
@@ -392,19 +395,21 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     int count = 0;
     int err;
     int delete_consolelock = 0;
-    const char *username = NULL;
+    const char *username = NULL, *user_prompt;
     char *lockfile = NULL;
     char *consoleuser = NULL;
-    char *tty;
+    const char *tty = NULL;
     struct stat st;
 
     D(("called."));
     _args_parse(argc, argv);
-    pam_get_item(pamh, PAM_USER, (const void **) &username);
+    user_prompt = "login: ";
+    libmisc_get_string_item(pamh, PAM_USER_PROMPT, &user_prompt);
+    pam_get_user(pamh, &username, user_prompt);
 
     if (!username || !username[0]) return PAM_SESSION_ERR;
     if (is_root(pamh, username)) return PAM_SUCCESS;
-    pam_get_item(pamh, PAM_TTY, CAST_ME_HARDER &tty);
+    libmisc_get_string_item(pamh, PAM_TTY, &tty);
     if (!tty || !tty[0]) return PAM_SESSION_ERR;
 
     /* get configuration */

@@ -4,6 +4,8 @@
  */
 #include "../config.h"
 #include <sys/types.h>
+#include <errno.h>
+#include <stdio.h>
 #include <regex.h>
 #include "pam_console.h"
 
