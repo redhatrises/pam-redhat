@@ -15,11 +15,6 @@
 #include <sys/stat.h>
 #include "../../libpam/include/security/pam_modules.h"
 
-#define PAM_GETPWNAM_R
-#define PAM_GETPWUID_R
-#define PAM_GETGRNAM_R
-#include "../../libpam/include/security/_pam_macros.h"
-
 static GHashTable *namespace = NULL;
 static GSList *configList = NULL;
 static GSList *configListEnd = NULL;

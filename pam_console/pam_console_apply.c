@@ -17,6 +17,11 @@
 #define STATIC static
 #include "pam_console.h"
 
+#define PAM_GETPWNAM_R
+#define PAM_GETPWUID_R
+#define PAM_GETGRNAM_R
+#include "../../libpam/include/security/_pam_macros.h"
+
 #define CAST_ME_HARDER (const void**)
 
 static char consolelock[PATH_MAX] = LOCKDIR ".lock";

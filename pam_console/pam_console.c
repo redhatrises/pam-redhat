@@ -41,6 +41,9 @@
 #define PAM_SM_AUTH
 #define PAM_SM_SESSION
 #include "../../libpam/include/security/pam_modules.h"
+#define PAM_GETPWNAM_R
+#define PAM_GETPWUID_R
+#define PAM_GETGRNAM_R
 #include "../../libpam/include/security/_pam_macros.h"
 /* In order to avoid errors in pam_get_item(), we need a very
  * unfortunate cast.  This is a terrible design error in PAM
