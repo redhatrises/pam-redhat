@@ -38,6 +38,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * $Log$
+ * Revision 1.28.2.2  2004/03/09 15:12:38  nalin
+ * - fix the laus patch. and i suck.
+ *
  * Revision 1.28.2.1  2004/02/03 20:28:46  nalin
  * - backport HAVE_LIBLAUS changes from HEAD
  *
@@ -492,7 +495,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 	}
 	stack_this->pamh->data = pamh->data;
 #if HAVE_LIBLAUS
-	stack_this->laus_state = pamh->laus_state;
+	stack_this->pamh->laus_state = pamh->laus_state;
 #endif
 
 	/* Now call the substack. */
@@ -540,7 +543,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 		closelog();
 	}
 #if HAVE_LIBLAUS
-	pamh->laus_state = stack_this->laus_state;
+	pamh->laus_state = stack_this->pamh->laus_state;
 #endif
 	pamh->data = stack_this->pamh->data;
 	if(debug) {
