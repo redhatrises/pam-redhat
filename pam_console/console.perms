@@ -38,7 +38,7 @@
 <fb>=/dev/fb /dev/fb[0-9]* \
      /dev/fb/*
 <kbd>=/dev/kbd
-<joystick>=/dev/js*
+<joystick>=/dev/js[0-9]*
 <v4l>=/dev/video* /dev/radio* /dev/winradio* /dev/vtx* /dev/vbi* \
       /dev/video/*
 <gpm>=/dev/gpmctl

@@ -1,5 +1,7 @@
 /* pam_localuser module */
 
+#include <_pam_aconf.h>
+
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>

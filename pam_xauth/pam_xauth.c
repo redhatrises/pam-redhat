@@ -7,6 +7,8 @@
  * Michael K. Johnson.
  */
 
+#include <_pam_aconf.h>
+
 #include <pwd.h>
 #include <errno.h>
 #include <fcntl.h>
