@@ -206,7 +206,7 @@ static void
 _pam_stack_cleanup(pam_handle_t *pamh, void *data, int status)
 {
 	struct stack_data *stack_this = (struct stack_data*) data, *next = NULL;
-	while(stack_this != NULL) {
+	if(stack_this != NULL) {
 		if(stack_this->debug) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "freeing stack data for `%s' service",
@@ -224,7 +224,6 @@ _pam_stack_cleanup(pam_handle_t *pamh, void *data, int status)
 		_pam_drop(stack_this->pamh);
 		free(stack_this->service);
 		free(stack_this);
-		stack_this = next;
 	}
 }
 
