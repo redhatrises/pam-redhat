@@ -25,7 +25,7 @@ LOCAL_CONF1 = console.perms
 INSTALLED_CONF1 = $(SCONFIGD)/console.perms
 LOCAL_CONF2 = console.handlers
 INSTALLED_CONF2 = $(SCONFIGD)/console.handlers
-MAN5 = console.apps.5 console.perms.5
+MAN5 = console.apps.5 console.perms.5 console.handlers.5
 MAN8 = pam_console.8 pam_console_apply.8
 
 CFLAGS += $(GLIB_CFLAGS) -DLOCKDIR=\"$(LOCKDIR)\" -I../pammodutil/include
