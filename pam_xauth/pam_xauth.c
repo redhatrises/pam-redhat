@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2003 Red Hat, Inc.
+ * Copyright 2001-2004 Red Hat, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,8 @@
 
 #ident "$Id$"
 
-#include "../../_pam_aconf.h"
+#include "../config.h"
+#include "../lib/libmisc.h"
 #include <sys/types.h>
 #include <sys/fsuid.h>
 #include <sys/wait.h>
@@ -54,7 +55,6 @@
 
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
-#include <security/_pam_modutil.h>
 
 #define DATANAME "pam_xauth_cookie_file"
 #define XAUTHBIN "/usr/X11R6/bin/xauth"
@@ -195,7 +195,7 @@ check_acl(pam_handle_t *pamh,
 	int i;
 	uid_t euid;
 	/* Check this user's <sense> file. */
-	pwd = _pammodutil_getpwnam(pamh, this_user);
+	pwd = libmisc_getpwnam(pamh, this_user);
 	if (pwd == NULL) {
 		syslog(LOG_ERR, "pam_xauth: error determining "
 		       "home directory for '%s'", this_user);
@@ -328,7 +328,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		       "user's name");
 		return PAM_SESSION_ERR;
 	}
-	rpwd = _pammodutil_getpwuid(pamh, getuid());
+	rpwd = libmisc_getpwuid(pamh, getuid());
 	if (rpwd == NULL) {
 		syslog(LOG_ERR, "pam_xauth: error determining invoking "
 		       "user's name");
@@ -337,7 +337,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* Get the target user's UID and primary GID, which we'll need to set
 	 * on the xauthority file we create later on. */
-	tpwd = _pammodutil_getpwnam(pamh, user);
+	tpwd = libmisc_getpwnam(pamh, user);
 	if (tpwd == NULL) {
 		syslog(LOG_ERR, "pam_xauth: error determining target "
 		       "user's UID");
