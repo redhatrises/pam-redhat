@@ -128,7 +128,36 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	/* Parse arguments. */
 	for(i = 0; i < argc; i++) {
 		if(strncmp("debug", argv[i], 5) == 0) {
+			char *stack_description = NULL;
 			debug = 1;
+			switch(which_stack) {
+				case PAM_AUTHENTICATE:
+					stack_description = "PAM_AUTHENTICATE";
+					break;
+				case PAM_SETCRED:
+					stack_description = "PAM_SETCRED";
+					break;
+				case PAM_OPEN_SESSION:
+					stack_description = "PAM_OPEN_SESSION";
+					break;
+				case PAM_CLOSE_SESSION:
+					stack_description = "PAM_CLOSE_SESSION";
+					break;
+				case PAM_ACCOUNT:
+					stack_description = "PAM_ACCOUNT";
+					break;
+				case PAM_CHAUTHTOK:
+					stack_description = "PAM_CHAUTHTOK";
+					break;
+				default:
+					stack_description = "(unknown)";
+			}
+			if(stack_description) {
+				openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+				syslog(LOG_DEBUG, "called for \"%s\"",
+				       stack_description);
+				closelog();
+			}
 		}
 		if(strncmp("service=", argv[i], 8) == 0) {
 			if(service != NULL) {
