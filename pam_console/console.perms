@@ -22,10 +22,11 @@
 <floppy>=/dev/fd[0-1]*
 <sound>=/dev/dsp* /dev/audio* /dev/midi* \
 	/dev/mixer* /dev/sequencer
-<cdrom>=/dev/cdrom
+<cdrom>=/dev/cdrom /dev/cdwriter
 <pilot>=/dev/pilot
 <jaz>=/dev/jaz
 <zip>=/dev/zip
+<scanner>=/dev/scanner
 <fb>=/dev/fb /dev/fb[0-9]*
 <kbd>=/dev/kbd
 <joystick>=/dev/js*
@@ -38,6 +39,7 @@
 <console>  0600 <pilot>     0660 root.tty
 <console>  0600 <jaz>       0660 root.disk
 <console>  0600 <zip>       0660 root.disk
+<console>  0600 <scanner>   0600 root
 <console>  0600 <fb>        0600 root
 <console>  0600 <kbd>       0600 root
 <console>  0600 <joystick>  0600 root
