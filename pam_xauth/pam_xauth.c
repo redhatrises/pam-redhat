@@ -73,7 +73,7 @@ typedef enum {
 
 static int debug = 0;
 static int log_facility = LOG_AUTHPRIV;
-static int systemuser = 499;
+static int systemuser = 99;
 static char *xauthority = NULL;
 static const char *xauthdefpath = "/usr/X11R6/bin/xauth";
 static char *xauth = NULL;
