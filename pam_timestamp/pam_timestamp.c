@@ -183,7 +183,7 @@ format_timestamp_name(char *path, size_t len,
 static int
 timestamp_good(time_t then, time_t now, time_t interval)
 {
-	if (((now > then) && ((now - then) < interval)) ||
+	if (((now >= then) && ((now - then) < interval)) ||
 	    ((now < then) && ((then - now) < (2 * interval)))) {
 		return PAM_SUCCESS;
 	}
@@ -371,6 +371,11 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* Open the timestamp file. */
 	fd = open(path, O_RDONLY | O_NOFOLLOW);
 	if (fd == -1) {
+		if (debug) {
+			syslog(LOG_DEBUG,
+			       MODULE ": cannot open timestamp `%s': %s",
+			       path, strerror(errno));
+		}
 		return PAM_AUTH_ERR;
 	}
 
@@ -447,16 +452,18 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		if (timestamp_good(then, now, interval) == PAM_SUCCESS) {
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
 			       "only %ld seconds old, allowing access to %s "
-			       "for UID %ld", path, now - st.st_mtime,
+			       "for UID %ld", path, (long) (now - st.st_mtime),
 			       service, (long)getuid());
 			if (verbose) {
 				verbose_success(pamh, debug, now - st.st_mtime);
 			}
 			return PAM_SUCCESS;
 		} else {
-			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
-			       "too old, disallowing access to %s for UID %ld",
-			       path, service, (long)getuid());
+			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' has "
+			       "unacceptable age (%ld seconds), disallowing "
+			       "access to %s for UID %ld",
+			       path, (long) (now - st.st_mtime),
+			       service, (long)getuid());
 			return PAM_AUTH_ERR;
 		}
 	}
