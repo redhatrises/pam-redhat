@@ -47,6 +47,7 @@
 #define PAM_CONST const
 
 #include "../config.h"
+#include "../lib/libmisc.h"
 #include <security/_pam_types.h>
 #include "libpam/pam_private.h"
 #include <security/pam_modules.h>
