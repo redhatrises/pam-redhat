@@ -23,6 +23,8 @@ CFLAGS += $(shell glib-config --cflags)
 FLEX_OPTS = -Cr
 BISON_OPTS = -d
 
+include ../Simple.Rules
+
 config.tab.c: config.y
 	bison $(BISON_OPTS) -p _pc_yy $<
 	sh ./sed-static $@
@@ -32,5 +34,3 @@ config.lex.c: config.l config.tab.c
 	sh ./sed-static $@
 
 $(LIBSRC): pam_console.h chmod.c modechange.c regerr.c config.lex.c config.tab.c
-
-include ../Simple.Rules
