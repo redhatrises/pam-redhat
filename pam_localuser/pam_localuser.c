@@ -1,5 +1,5 @@
 /*
- * Copyright 2001 Red Hat, Inc.
+ * Copyright 2001,2004 Red Hat, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../../_pam_aconf.h"
+#include "../config.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -49,8 +49,8 @@
 
 #define PAM_SM_AUTH
 #define PAM_SM_ACCOUNT
-#include "../../libpam/include/security/pam_modules.h"
-#include "../../libpam/include/security/_pam_macros.h"
+#include <security/pam_modules.h>
+#include <security/_pam_macros.h>
 
 #define MODULE_NAME "pam_localuser"
 
