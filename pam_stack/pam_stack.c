@@ -120,7 +120,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	ret = pam_get_item(pamh, PAM_SERVICE, &defined_items[i].item);
 	if(ret != PAM_SUCCESS) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_ERR, "pam_get_data(PAM_SERVICE) returned %s",
+		syslog(LOG_ERR, "pam_get_item(PAM_SERVICE) returned %s",
 		       pam_strerror(pamh, ret));
 		closelog();
 		return PAM_SYSTEM_ERR;
