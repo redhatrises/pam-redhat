@@ -13,5 +13,5 @@ clean:
 	rm -f *.o $(OUT)
 
 install:
-	install -m755 $(OUT) $(FAKEROOT)$(SECUREDIR)
-	install -m644 chroot.conf $(FAKEROOT)$(SCONFIGED)
+	install -m 755 $(OUT) $(FAKEROOT)$(SECUREDIR)
+	install -m 644 chroot.conf $(FAKEROOT)$(SCONFIGED)
