@@ -14,6 +14,7 @@ LIBS +=  $(shell glib-config --libs)
 LDFLAGS = $(LIBS)
 
 BINARY = pam_console_apply
+BINSRC = $(TITLE)_apply.c
 LOCAL_CONFILE = console.perms
 INSTALLED_CONFILE = $(SCONFIGD)/console.perms
 MAN5 = console.apps.5 console.perms.5
@@ -59,6 +60,8 @@ register:
 ifdef STATIC
 	( cd .. ; ./register_static $(TITLE) $(TITLE)/$(LIBSTATIC) )
 endif
+
+$(BINARY): $(BINSRC)
 
 ifdef DYNAMIC
 $(LIBOBJD): $(LIBSRC)
@@ -122,3 +125,4 @@ config.lex.c: config.l config.tab.c
 	sh ./sed-static $@
 
 $(LIBSRC): pam_console.h chmod.c modechange.c regerr.c config.lex.c config.tab.c
+$(BINSRC): pam_console.h chmod.c modechange.c regerr.c config.lex.c config.tab.c

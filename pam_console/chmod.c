@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <glob.h>
+#include <fnmatch.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,10 +74,9 @@ stpcpy (char *dest, const char *src)
 
 static const char *fstab_filename = "/etc/fstab";
 
-static int change_dir __P ((const char *dir,
-			    const struct mode_change *changes,
-			    const struct stat *statp,
-			    uid_t user, gid_t group));
+static int change_via_fstab __P ((const char *dir,
+				  const struct mode_change *changes,
+				  uid_t user, gid_t group));
 
 /* Change the mode of FILE according to the list of operations CHANGES.
    If DEREF_SYMLINK is nonzero and FILE is a symbolic link, change the
@@ -91,12 +91,23 @@ change_file (const char *file, const struct mode_change *changes,
   unsigned short newmode;
   int errors = 0;
 
-  if (lstat (file, &file_stats))
+  if (lstat (file, &file_stats) == -1)
     {
-      return 1;
+      if (errno == ENOENT)
+        {
+          /* doesn't exist, check fstab */
+          errors |= change_via_fstab (file, changes, user, group);
+          return errors;
+	}
+      else
+        {
+          return 1;
+        }
     }
+
   if (S_ISLNK (file_stats.st_mode))
     {
+      /* don't bother with dangling symlinks */
       if (stat (file, &file_stats))
 	{
 	  return 1;
@@ -106,7 +117,7 @@ change_file (const char *file, const struct mode_change *changes,
   newmode = mode_adjust (file_stats.st_mode, changes);
 
   if (S_ISDIR (file_stats.st_mode))
-    errors |= change_dir (file, changes, &file_stats, user, group);
+    errors |= change_via_fstab (file, changes, user, group);
   else
     {
       if (newmode != (file_stats.st_mode & 07777))
@@ -129,11 +140,11 @@ chmod_set_fstab(const char *fstab)
 }
 
 
-/* If the directory is a filesystem listed in /etc/fstab, modify the
- * device special associated with that filesystem. */
+/* If the directory spec given matches a filesystem listed in /etc/fstab,
+ * modify the device special associated with that filesystem. */
 static int
-change_dir (const char *dir, const struct mode_change *changes,
-	    const struct stat *statp, uid_t user, gid_t group)
+change_via_fstab (const char *dir, const struct mode_change *changes,
+		  uid_t user, gid_t group)
 {
   int errors = 0;
   FILE *fstab;
@@ -150,7 +161,7 @@ change_dir (const char *dir, const struct mode_change *changes,
     {
       if(mntent->mnt_dir &&
          mntent->mnt_fsname &&
-	 (strcmp(mntent->mnt_dir, dir) == 0))
+	 (fnmatch(dir, mntent->mnt_dir, 0) == 0))
         {
           errors |= change_file(mntent->mnt_fsname, changes, TRUE, user, group);
         }
@@ -181,7 +192,7 @@ chmod_files (const char *mode, uid_t user, gid_t group,
   int errors = 0;
   glob_t result;
   char *filename;
-  int flags = 0;
+  int flags = GLOB_NOCHECK;
   int i, rc;
 
   changes = mode_compile (mode,
