@@ -272,9 +272,9 @@ execute_handler(struct console_handler *handler, const char *user, const char *t
 	if (WIFEXITED(rv) && WEXITSTATUS(rv) != 0)
 		_pam_log(LOG_ERR, !logfail, "handler '%s' returned %d on exit",
 			handler->executable, (int)WEXITSTATUS(rv));
-	else
-		_pam_log(LOG_ERR, !logfail, "handler '%s' caught a signal",
-			handler->executable);
+	else if (WIFSIGNALED(rv))
+		_pam_log(LOG_ERR, !logfail, "handler '%s' caught a signal %d",
+			handler->executable, (int)WTERMSIG(rv));
 			
         return 0;
 }
