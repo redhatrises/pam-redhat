@@ -75,10 +75,13 @@ check_dir_perms(const char *tdir)
 	if ((tdir == NULL) || (strlen(tdir) == 0)) {
 		return PAM_AUTH_ERR;
 	}
+	/* Iterate over the path, checking intermediate directories. */
 	memset(scratch, 0, sizeof(scratch));
 	for (i = 0; (tdir[i] != '\0') && (i < sizeof(scratch)); i++) {
 		scratch[i] = tdir[i];
 		if ((scratch[i] == '/') || (tdir[i + 1] == '\0')) {
+			/* We now have the name of a directory in the path, so
+			 * we need to check it. */
 			if ((lstat(scratch, &st) == -1) && (errno != ENOENT)) {
 				syslog(LOG_ERR,
 				       MODULE ": unable to read `%s'",
@@ -153,8 +156,8 @@ check_tty(const char *tty)
 static int
 format_timestamp_name(char *path, size_t len,
 		      const char *timestamp_dir,
-		      const char *ruser,
 		      const char *tty,
+		      const char *ruser,
 		      const char *user)
 {
 	if (strcmp(ruser, user) == 0) {
@@ -268,7 +271,7 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 	}
 	/* Generate the name of the file used to cache auth results.  These
 	 * paths should jive with sudo's per-tty naming scheme. */
-	if (format_timestamp_name(path, len, tdir, ruser, tty, user) >= len) {
+	if (format_timestamp_name(path, len, tdir, tty, ruser, user) >= len) {
 		return PAM_AUTH_ERR;
 	}
 	if (debug) {
@@ -423,6 +426,8 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 					}
 					return PAM_SESSION_ERR;
 				}
+				/* Attempt to set the owner to the superuser. */
+				lchown(subdir, 0, 0);
 			}
 		}
 	}
@@ -459,21 +464,25 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 #else /* PAM_TIMESTAMP_MAIN */
 
-#define USAGE "Usage: %s [-k] [target user]\n"
+#define USAGE "Usage: %s [[-k] | [-d]] [target user]\n"
+#define CHECK_INTERVAL 5
 
 int
 main(int argc, char **argv)
 {
-	char path[PATH_MAX];
-	const char *tty;
-	char *user;
-	const char *target_user;
+	int i, pretval = -1, retval = 0, dflag = 0, kflag = 0;
+	const char *target_user = NULL, *user = NULL, *tty = NULL;
 	struct passwd *pwd;
-	int kflag = 0, i;
+	struct timeval tv;
+	fd_set write_fds;
+	char path[PATH_MAX];
 	struct stat st;
 
-	while ((i = getopt(argc, argv, "k")) != -1) {
+	while ((i = getopt(argc, argv, "dk")) != -1) {
 		switch (i) {
+			case 'd':
+				dflag++;
+				break;
 			case 'k':
 				kflag++;
 				break;
@@ -484,57 +493,104 @@ main(int argc, char **argv)
 		}
 	}
 
-	if (geteuid() != 0) {
-		fprintf(stderr, "%s must be setuid root\n", argv[0]);
-		return 2;
+	/* Bail if both -k and -d are given together. */
+	if ((kflag + dflag) > 1) {
+		fprintf(stderr, USAGE, argv[0]);
+		return 1;
 	}
 
+	/* Check that we're setuid. */
+	if (geteuid() != 0) {
+		fprintf(stderr, "%s must be setuid root\n",
+			argv[0]);
+		retval = 2;
+	}
+
+	/* Check that we have a controlling tty. */
 	tty = ttyname(STDIN_FILENO);
 	if (tty == NULL) {
 		fprintf(stderr, "no controlling tty\n");
-		return 3;
+		retval = 3;
 	}
 
+	/* Get the name of the invoking (requesting) user. */
 	pwd = getpwuid(getuid());
 	if (pwd == NULL) {
-		return 4;
+		retval = 4;
 	}
+
+	/* Get the name of the target user. */
 	user = strdup(pwd->pw_name);
-	target_user = argc > 1 ? argv[1] : user;
+	target_user = (optind < argc) ? argv[optind] : user;
 	if ((strchr(target_user, '.') != NULL) ||
 	    (strchr(target_user, '/') != NULL) ||
 	    (strchr(target_user, '%') != NULL)) {
-		fprintf(stderr, "unknown user\n");
-		return 4;
+		fprintf(stderr, "unknown user: %s\n",
+			target_user);
+		retval = 4;
 	}
 
-	if (check_dir_perms(TIMESTAMPDIR) != PAM_SUCCESS) {
-		return 5;
-	}
-
-	tty = check_tty(ttyname(STDIN_FILENO));
-	if (tty == NULL) {
-		return 6;
-	}
-
-	format_timestamp_name(path, sizeof(path), TIMESTAMPDIR,
-			      user, tty, optind < argc ? argv[optind] : user);
-	if (kflag) {
-		/* Remove the timestamp. */
-		if (lstat(path, &st) != -1) {
-			unlink(path);
-			return 0;
-		}
-	} else {
-		/* Check the timestamp. */
-		if (lstat(path, &st) != -1) {
-			if (timestamp_good(st.st_mtime, time(NULL),
-					   DEFAULT_TIMESTAMP_TIMEOUT) == PAM_SUCCESS) {
-				return 0;
+	do {
+		if (retval == 0) {
+			if (check_dir_perms(TIMESTAMPDIR) != PAM_SUCCESS) {
+				retval = 5;
 			}
 		}
-	}
 
-	return 7;
+		if (retval == 0) {
+			tty = check_tty(ttyname(STDIN_FILENO));
+			if (tty == NULL) {
+				fprintf(stderr, "invalid tty\n");
+				retval = 6;
+			}
+		}
+
+		if (retval == 0) {
+			/* Generate the name of the timestamp file. */
+			format_timestamp_name(path, sizeof(path), TIMESTAMPDIR,
+					      tty, user, target_user);
+		}
+
+		if (retval == 0) {
+			if (kflag) {
+				/* Remove the timestamp. */
+				if (lstat(path, &st) != -1) {
+					unlink(path);
+					retval = unlink(path);
+				}
+			} else {
+				/* Check the timestamp. */
+				if (lstat(path, &st) != -1) {
+					if (!timestamp_good(st.st_mtime, time(NULL),
+							    DEFAULT_TIMESTAMP_TIMEOUT) == PAM_SUCCESS) {
+						retval = 7;
+					}
+				}
+			}
+		}
+
+		if (dflag > 0) {
+			if (!feof(stdout)) {
+				if (retval != pretval) {
+					fprintf(stdout, "%d\n", retval);
+					fflush(stdout);
+				}
+				tv.tv_sec = CHECK_INTERVAL;
+				tv.tv_usec = 0;
+				FD_ZERO(&write_fds);
+				FD_SET(STDOUT_FILENO, &write_fds);
+				select(STDOUT_FILENO + 1,
+				       NULL, NULL, &write_fds,
+				       &tv);
+				pretval = retval;
+				retval = 0;
+			} else {
+				dflag = 0;
+			}
+		}
+	} while (dflag > 0);
+
+	return retval;
 }
+
 #endif
