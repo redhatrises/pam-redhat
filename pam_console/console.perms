@@ -31,6 +31,7 @@
 <kbd>=/dev/kbd
 <joystick>=/dev/js*
 <v4l>=/dev/video* /dev/radio* /dev/winradio* /dev/vtx* /dev/vbi*
+<gpm>=/dev/gpmctl
 
 # permission definitions
 <console>  0660 <floppy>    0660 root.floppy
@@ -44,5 +45,6 @@
 <console>  0600 <kbd>       0600 root
 <console>  0600 <joystick>  0600 root
 <console>  0600 <v4l>       0600 root
+<console>  0700 <gpm>	    0700 root
 
 <xconsole> 0600 /dev/console 0600 root.root
