@@ -361,6 +361,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 
 	/* Clean up and bug out.  Don't free the ITEMs because they're shared
 	   by the parent's pamh. */
+	sub_pamh->service_name = NULL;
 	sub_pamh->data = NULL;
 	_pam_drop_env(sub_pamh);
 	if(service != NULL) {
