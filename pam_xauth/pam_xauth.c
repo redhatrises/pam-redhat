@@ -37,8 +37,10 @@
 
 #include "../../_pam_aconf.h"
 #include <sys/types.h>
+#include <sys/fsuid.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <fnmatch.h>
 #include <limits.h>
 #include <netdb.h>
 #include <pwd.h>
@@ -182,17 +184,102 @@ cleanup(pam_handle_t *pamh, void *data, int err)
 	free(data);
 }
 
+/* Check if we want to allow export to the other user, or import from the
+ * other user. */
+static int
+check_acl(const char *sense, const char *this_user, const char *other_user,
+	  int noent_code, int debug)
+{
+	char path[PATH_MAX];
+	struct passwd passwd, *pwd;
+	FILE *fp;
+	char buf[LINE_MAX], *tmp;
+	size_t buflen;
+	int i;
+	uid_t euid;
+	/* Check this user's <sense> file. */
+	if (_pam_getpwnam_r(this_user, &passwd, &tmp, &buflen, &pwd) != 0) {
+		syslog(LOG_ERR, "pam_xauth: error determining "
+		       "home directory for '%s'", this_user);
+		return PAM_SESSION_ERR;
+	}
+	/* Figure out what that file is really named. */
+	i = snprintf(path, sizeof(path), "%s/.xauth/%s", pwd->pw_dir, sense);
+	free(tmp);
+	if ((i >= sizeof(path)) || (i < 0)) {
+		syslog(LOG_ERR, "pam_xauth: name of user's home directory "
+		       "is too long");
+		return PAM_SESSION_ERR;
+	}
+	euid = geteuid();
+	setfsuid(passwd.pw_uid);
+	fp = fopen(path, "r");
+	setfsuid(euid);
+	if (fp != NULL) {
+		/* Scan the file for a list of specs of users to "trust". */
+		while(fgets(buf, sizeof(buf), fp) != NULL) {
+			tmp = memchr(buf, '\r', sizeof(buf));
+			if (tmp != NULL) {
+				*tmp = '\0';
+			}
+			tmp = memchr(buf, '\n', sizeof(buf));
+			if (tmp != NULL) {
+				*tmp = '\0';
+			}
+			if (fnmatch(buf, other_user, 0) == 0) {
+				if (debug) {
+					syslog(LOG_DEBUG, "pam_xauth: %s %s "
+					       "allowed by %s",
+					       other_user, sense, path);
+				}
+				fclose(fp);
+				return PAM_SUCCESS;
+			}
+		}
+		/* If there's no match in the file, we fail. */
+		if (debug) {
+			syslog(LOG_DEBUG, "pam_xauth: %s not listed in %s",
+			       other_user, path);
+		}
+		fclose(fp);
+		return PAM_PERM_DENIED;
+	} else {
+		/* Default to okay if the file doesn't exist. */
+		switch (errno) {
+		case ENOENT:
+			if (noent_code == PAM_SUCCESS) {
+				if (debug) {
+					syslog(LOG_DEBUG, "%s does not exist, "
+					       "ignoring", path);
+				}
+			} else {
+				if (debug) {
+					syslog(LOG_DEBUG, "%s does not exist, "
+					       "failing", path);
+				}
+			}
+			return noent_code;
+		default:
+			if (debug) {
+				syslog(LOG_ERR, "%s opening %s",
+				       strerror(errno), path);
+			}
+			return PAM_PERM_DENIED;
+		}
+	}
+}
+
 int
 pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	char xauthpath[] = XAUTHBIN;
-	char *cookiefile = NULL, *xauthority = NULL,
-	     *cookie = NULL, *display = NULL, *thome = NULL, *tmp;
+	char *cookiefile = NULL, *xauthority = NULL, *ruser = NULL,
+	     *cookie = NULL, *display = NULL, *thome = NULL, *tmp = NULL;
 	const char *user, *xauth = xauthpath;
-	struct passwd passwd, *pwd;
+	struct passwd passwd, *pwd, rpasswd, *rpwd;
 	size_t buflen;
 	int fd, i, debug = 0;
-	uid_t systemuser = 499;
+	uid_t systemuser = 499, euid;
 
 	/* Parse arguments.  We don't understand many, so no sense in breaking
 	 * this into a separate function. */
@@ -234,12 +321,23 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		       "user's name");
 		return PAM_SESSION_ERR;
 	}
+	if (_pam_getpwuid_r(getuid(), &rpasswd, &tmp, &buflen, &rpwd) != 0) {
+		syslog(LOG_ERR, "pam_xauth: error determining invoking "
+		       "user's name");
+		return PAM_SESSION_ERR;
+	}
+	ruser = strdup(rpasswd.pw_name);
+	if (tmp) {
+		free(tmp);
+		tmp = NULL;
+	}
 
 	/* Get the target user's UID and primary GID, which we'll need to set
 	 * on the xauthority file we create later on. */
 	if (_pam_getpwnam_r(user, &passwd, &tmp, &buflen, &pwd) != 0) {
 		syslog(LOG_ERR, "pam_xauth: error determining target "
 		       "user's UID");
+		free(ruser);
 		return PAM_SESSION_ERR;
 	}
 
@@ -248,13 +346,41 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	thome = strdup(passwd.pw_dir);
 	if (tmp) {
 		free(tmp);
+		tmp = NULL;
 	}
 
 	/* If the UID is a system account (and not the superuser), forget
 	 * about forwarding keys. */
 	if ((passwd.pw_uid != 0) && (passwd.pw_uid <= systemuser)) {
+		if (debug) {
+			syslog(LOG_DEBUG, "pam_xauth: not forwarding cookies "
+			       "to user ID %ld", (long) passwd.pw_uid);
+		}
+		free(ruser);
 		free(thome);
-		return PAM_SUCCESS;
+		return PAM_SESSION_ERR;
+	}
+
+	/* Check that both users are amenable to this.  By default, this
+	 * boils down to this policy:
+	 * export(ruser=root): only if <user> is listed in .xauth/export
+	 * export(ruser=*) if <user> is listed in .xauth/export, or
+	 *                 if .xauth/export does not exist
+	 * import(user=*): if <ruser> is listed in .xauth/import, or
+	 *                 if .xauth/import does not exist */
+	i = (getuid() != 0) ? PAM_SUCCESS : PAM_PERM_DENIED;
+	i = check_acl("export", ruser, user, i, debug);
+	if (i != PAM_SUCCESS) {
+		free(ruser);
+		free(thome);
+		return PAM_SESSION_ERR;
+	}
+	i = PAM_SUCCESS;
+	i = check_acl("import", user, ruser, i, debug);
+	if (i != PAM_SUCCESS) {
+		free(ruser);
+		free(thome);
+		return PAM_SESSION_ERR;
 	}
 
 	/* Figure out where the source user's .Xauthority file is. */
@@ -265,15 +391,20 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		size_t t_len;
 		struct passwd tpasswd, *tpwd;
 		if (_pam_getpwuid_r(getuid(), &tpasswd, &t, &t_len,
-				   &tpwd) == 0) {
+				    &tpwd) == 0) {
 			homedir = strdup(tpasswd.pw_dir);
 			free(t);
+			t = NULL;
 		} else {
+			syslog(LOG_ERR, "pam_xauth: could not resolve UID %ld "
+			       "to user name", (long) getuid());
+			free(ruser);
 			free(thome);
 			return PAM_SESSION_ERR;
 		}
 		cookiefile = malloc(strlen(homedir) + 1 + strlen(XAUTHDEF) + 1);
 		if (cookiefile == NULL) {
+			free(ruser);
 			free(thome);
 			free(homedir);
 			return PAM_SESSION_ERR;
@@ -282,6 +413,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		strcat(cookiefile, "/");
 		strcat(cookiefile, XAUTHDEF);
 		free(homedir);
+		homedir = NULL;
 	}
 	if (debug) {
 		syslog(LOG_DEBUG, "pam_xauth: reading keys from `%s'",
@@ -337,6 +469,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 						      "nlist", t, NULL);
 				}
 				free(t);
+				t = NULL;
 			}
 		}
 
@@ -345,6 +478,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			if (debug) {
 				syslog(LOG_DEBUG, "pam_xauth: no key");
 			}
+			free(ruser);
 			free(thome);
 			free(cookiefile);
 			return PAM_SESSION_ERR;
@@ -358,6 +492,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			if (debug) {
 				syslog(LOG_DEBUG, "pam_xauth: no free memory");
 			}
+			free(ruser);
 			free(thome);
 			free(cookiefile);
 			free(cookie);
@@ -370,12 +505,16 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		strcat(xauthority, XAUTHTMP);
 
 		/* Generate a new file to hold the data. */
+		euid = geteuid();
+		setfsuid(passwd.pw_uid);
 		fd = mkstemp(xauthority + strlen(XAUTHENV) + 1);
+		setfsuid(euid);
 		if (fd == -1) {
 			syslog(LOG_ERR, "pam_xauth: error creating "
 			       "temporary file `%s': %s",
 			       xauthority + strlen(XAUTHENV) + 1,
 			       strerror(errno));
+			free(ruser);
 			free(thome);
 			free(cookiefile);
 			free(cookie);
@@ -397,6 +536,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			syslog(LOG_ERR, "pam_xauth: error saving name of "
 			       "temporary file `%s'", cookiefile);
 			unlink(cookiefile);
+			free(ruser);
 			free(thome);
 			free(xauthority);
 			free(cookiefile);
@@ -423,8 +563,12 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			      xauth, "-f", cookiefile, "nmerge", "-", NULL);
 
 		/* We don't need to keep a copy of these around any more. */
+		free(ruser);
+		ruser = NULL;
 		free(cookie);
+		cookie = NULL;
 		free(thome);
+		thome = NULL;
 	}
 	return PAM_SUCCESS;
 }
