@@ -417,14 +417,12 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (count < 0) {
 	ret = PAM_SESSION_ERR;
     }
-    else {
-	if (got_console) {
-	    _pam_log(LOG_DEBUG, TRUE, "%s is console user", username);
-	    /* woohoo!  We got here first, grab ownership and perms... */
-	    set_permissions(pamh, tty, username, allow_nonroot_tty);
-	    /* errors will be logged and are not critical */
-    	    ret = PAM_SUCCESS;
-	}
+    else if (got_console) {
+	_pam_log(LOG_DEBUG, TRUE, "%s is console user", username);
+	/* woohoo!  We got here first, grab ownership and perms... */
+	set_permissions(pamh, tty, username, allow_nonroot_tty, NULL);
+	/* errors will be logged and are not critical */
+    	ret = PAM_SUCCESS;
     }
     
     free(lockfile);
@@ -504,7 +502,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	    if (!strcmp(username, consoleuser)) {
 		delete_consolelock = 1;
-		reset_permissions(pamh, tty, allow_nonroot_tty);
+		reset_permissions(pamh, tty, allow_nonroot_tty, NULL);
 		/* errors will be logged and at this stage we cannot do
 		 * anything about them...
 		 */

@@ -21,7 +21,7 @@
    along with this program; if not, write to the Free Software Foundation,
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "../config.h"
+#include "../../_pam_aconf.h"
 #include <errno.h>
 #include <glob.h>
 #include <fnmatch.h>
@@ -134,7 +134,7 @@ change_file (const char *file, const struct mode_change *changes,
   return errors;
 }
 
-void
+static void
 chmod_set_fstab(const char *fstab)
 {
   fstab_filename = strdup(fstab);
@@ -185,9 +185,21 @@ glob_errfn(const char *pathname, int theerr) {
 
 #define DIE(n) {fprintf(stderr, "chmod failure\n"); return (n);}
 
-int
+static int
+match_files(GSList *files, const char *filename) {
+
+    if (!files)
+        return 0; /* empty list matches */
+    for (; files; files = files->next) {
+        if (!fnmatch(files->data, filename, FNM_PATHNAME))
+    	    return 0;
+    }
+    return -1;
+}
+
+STATIC int
 chmod_files (const char *mode, uid_t user, gid_t group,
-	     char *single_file, GSList *filelist)
+	     char *single_file, GSList *filelist, GSList *constraints)
 {
   struct mode_change *changes;
   int errors = 0;
@@ -214,11 +226,13 @@ chmod_files (const char *mode, uid_t user, gid_t group,
   }
 
   for (i = 0; i < result.gl_pathc; i++) {
-    errors |= change_file (result.gl_pathv[i], changes, 1, user, group);
+    if (!match_files(constraints, result.gl_pathv[i])) {
+	errors |= change_file (result.gl_pathv[i], changes, 1, user, group);
 #if 0
-    _pam_log(LOG_DEBUG, TRUE,
-	     "file %s (%d): mode %s\n", result.gl_pathv[i], user, mode);
+	_pam_log(LOG_DEBUG, TRUE,
+	         "file %s (%d): mode %s\n", result.gl_pathv[i], user, mode);
 #endif
+    }
   }
 
   globfree(&result);

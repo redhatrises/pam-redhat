@@ -53,6 +53,7 @@ main(int argc, char **argv)
 	struct stat st;
 	char *consoleuser = NULL;
 	enum {Set, Reset} sense = Set;
+	GSList *files = NULL;
 
 	while((c = getopt(argc, argv, "c:f:r")) != -1) {
 		switch(c) {
@@ -66,11 +67,15 @@ main(int argc, char **argv)
 				  break;
 			default:
 				  fprintf(stderr, "usage: %s [-f /etc/fstab] "
-					  "[-c %s] [-r]\n", argv[0],
+					  "[-c %s] [-r] [<device file> ...]\n", argv[0],
 					  consoleperms);
 				  exit(1);
 		}
 	}
+
+	for (i = argc-1; i >= optind;  i--) {
+		files = g_slist_prepend(files, argv[i]);
+        }
 
 	parse_file(consoleperms);
         fd = open(consolelock, O_RDONLY);
@@ -96,10 +101,10 @@ main(int argc, char **argv)
 		sense = Reset;
 	}
 	if((sense == Set) && (consoleuser != NULL)) {
-		set_permissions(NULL, "tty0", consoleuser, TRUE);
+		set_permissions(NULL, "tty0", consoleuser, TRUE, files);
 	}
 	if(sense == Reset) {
-		reset_permissions(NULL, "tty0", TRUE);
+		reset_permissions(NULL, "tty0", TRUE, files);
 	}
 	return 0;
 

@@ -18,3 +18,5 @@ without autoconf support.
 * pam_timestamp: Ignore the timestamp file if it's older than oldest 
   login (tmraz)
 * Allow using pam_console for authentication (tmraz)
+* Add a file parameter to pam_console_apply to apply its work only on 
+  that file (tmraz)

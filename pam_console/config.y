@@ -274,7 +274,7 @@ check_console_name (const char *consolename, int nonroot_ok, int on_set) {
 }
 
 STATIC int
-set_permissions(pam_handle_t *pamh, const char *consolename, const char *username, int nonroot_ok) {
+set_permissions(pam_handle_t *pamh, const char *consolename, const char *username, int nonroot_ok, GSList *files) {
     struct passwd *pwd;
     config *c;
     GSList *cl;
@@ -292,17 +292,17 @@ set_permissions(pam_handle_t *pamh, const char *consolename, const char *usernam
     for (cl = configList; cl; cl = cl->next) {
 	c = cl->data;
 	if (g_hash_table_lookup(consoleHash, c->console_class)) {
-	    if (c->device_class->list)
-		chmod_files(c->mode, pwd->pw_uid, -1, NULL, c->device_class->list);
+    	    if (c->device_class->list)
+	        chmod_files(c->mode, pwd->pw_uid, -1, NULL, c->device_class->list, files);
 	    else
-		chmod_files(c->mode, pwd->pw_uid, -1, c->device_class->name, NULL);
+	        chmod_files(c->mode, pwd->pw_uid, -1, c->device_class->name, NULL, files);
 	}
     }
     return 0;
 }
 
 STATIC int
-reset_permissions(pam_handle_t *pamh, const char *consolename, int nonroot_ok) {
+reset_permissions(pam_handle_t *pamh, const char *consolename, int nonroot_ok, GSList *files) {
     struct passwd *pwd;
     struct group *grp;
     config *c;
@@ -328,11 +328,11 @@ reset_permissions(pam_handle_t *pamh, const char *consolename, int nonroot_ok) {
                 return -1;
             }
 	    if (c->device_class->list)
-		chmod_files(c->revert_mode ? c->revert_mode : "0600",
-			    pwd->pw_uid, grp->gr_gid, NULL, c->device_class->list);
+	        chmod_files(c->revert_mode ? c->revert_mode : "0600",
+		            pwd->pw_uid, grp->gr_gid, NULL, c->device_class->list, files);
 	    else
-		chmod_files(c->revert_mode ? c->revert_mode : "0600",
-			    pwd->pw_uid, grp->gr_gid, c->device_class->name, NULL);
+	        chmod_files(c->revert_mode ? c->revert_mode : "0600",
+		            pwd->pw_uid, grp->gr_gid, c->device_class->name, NULL, files);
 	}
     }
     return 0;

@@ -3,7 +3,8 @@
 .SH NAME
 pam_console_apply \- set or revoke permissions for users at the system console
 .SH SYNOPSIS
-.B pam_console_apply [-r]
+.B pam_console_apply 
+[-f <fstab file>] [-c <console.perms file>] [-r] [<device file> ...]
 .SH DESCRIPTION
 \fBpam_console_apply\fP sets or resets permissions on devices in the same
 manner as pam_console.
@@ -14,10 +15,18 @@ permissions are reset to those listed in \fI/etc/security/console.perms\fP,
 which should be configured to set permissions on devices so that \fBroot\fP
 owns them.
 .SH ARGUMENTS
+.IP -c
+Load other console.perms file than the default one.
+.IP -f
+Load other fstab file than the default one (\fI/etc/fstab\fP).
 .IP -r
 Signals \fBpam_console_apply\fP to reset permissions.  The default is to set
 permissions so that the user listed in \fI/var/run/console.lock\fP has access
 to the devices, and to reset permissions if no such file exists.
+.PP
+The optional <device file> arguments constrain what files should be affected
+by \fBpam_console_apply\fP. If they aren't specified permissions are
+changed on all files specified in the \fIconsole.perms\fP file.
 .SH FILES
 \fI/var/run/console.lock\fP
 .br

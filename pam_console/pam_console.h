@@ -38,9 +38,9 @@ STATIC int
 check_console_name (const char *consolename, int allow_nonroot, int on_set);
 
 STATIC int
-set_permissions(pam_handle_t *pamh, const char *consolename, const char *username, int allow_nonroot);
+set_permissions(pam_handle_t *pamh, const char *consolename, const char *username, int allow_nonroot, GSList *files);
 
 STATIC int
-reset_permissions(pam_handle_t *pamh, const char *consolename, int allow_nonroot);
+reset_permissions(pam_handle_t *pamh, const char *consolename, int allow_nonroot, GSList *files);
 
 #endif /* _PAM_CONSOLE_H */
