@@ -2,7 +2,7 @@
 .SH NAME
 pam_timestamp_check \- check or clear authentication timestamps
 .SH SYNOPSIS
-.B pam_timestamp [-k] [target_user]
+.B pam_timestamp [[-d]|[-k]] [target_user]
 .br
 
 .SH DESCRIPTION
@@ -16,6 +16,9 @@ instead of checking the validity of a timestamp, remove it.  This is analogous
 to sudo's
 .B -k
 option.
+.IP -d
+Instead of returning validity using an exit status, loop indefinitely,
+polling regularly and printing the status on standard output.
 .IP target_user
 The default behavior of
 .B pam_timestamp_check
