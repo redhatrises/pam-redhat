@@ -2,16 +2,12 @@
  * This software may be used under the terms of the GNU General Public
  * License, available in the file COPYING accompanying this file
  */
-#include "../../_pam_aconf.h"
+#include "../config.h"
 #include <sys/types.h>
 #include <regex.h>
 #include "pam_console.h"
 
-#ifndef STATIC
-#define STATIC
-#endif
-
-STATIC void
+void
 do_regerror(int errcode, const regex_t *preg) {
     char *errbuf;
     size_t errbuf_size;
