@@ -4,10 +4,11 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
-0.78-4: 
+0.78-4: Thu Mar 10 2005
 
 * Merged fix for gcc4 compilation and config file parsing from dist
 * Added functionality for executing binaries when locking/unlocking console
+* Distribute as tar.bz2
 
 0.78-3: Wed Jan 12 2005
 
