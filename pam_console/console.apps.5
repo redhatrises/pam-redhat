@@ -1,0 +1,18 @@
+.\" Copyright 1999 Red Hat Software, Inc.
+.\" Written by Michael K. Johnson <johnsonm@redhat.com>
+.TH console.apps 5 1999/2/4 "Red Hat Software" "System Administrator's Manual"
+.SH NAME
+console.apps \- specify console-accessible priviledged applications
+.SH DESCRIPTION
+The /etc/security/console.apps/ directory should contain one file
+per application that wishes to allow access to console users.
+The filename should be the same as the servicename, and the
+contents are irrelevant; the file may be a zero-length file.
+The application that the file is used by is free to specify the
+contents in any way that is useful for it.
+.SH "SEE ALSO"
+.BR pam_console (8)
+.br
+.BR console.perms (5)
+.SH AUTHOR
+Michael K. Johnson <johnsonm@redhat.com>

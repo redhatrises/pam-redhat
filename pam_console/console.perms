@@ -1,0 +1,46 @@
+# /etc/security/console.perms
+#
+# This file determines the permissions that will be given to priviledged
+# users of the console at login time, and the permissions to which to
+# revert when the users log out.
+
+# format is:
+#   <class>=list of regexps specifying consoles or globs specifying files
+#   file-glob|<class> perm dev-regex|<dev-class> \
+#     revert-mode revert-owner[.revert-group]
+# the revert-mode, revert-owner, and revert-group are optional, and default
+# to 0600, root, and root, respectively.
+#
+# For more information:
+# man 5 console.perms
+
+# file classes -- these are regular expressions
+<console>=tty[0-9][0-9]* :[0-9]\.[0-9] :[0-9]
+<xconsole>=:[0-9]\.[0-9] :[0-9]
+
+# device classes -- these are shell-style globs
+<floppy>=/dev/fd[0-1]*
+<sound>=/dev/dsp* /dev/audio* /dev/midi* \
+	/dev/mixer* /dev/sequencer
+<cdrom>=/dev/cdrom
+<pilot>=/dev/pilot
+<jaz>=/dev/jaz
+<zip>=/dev/zip
+<fb>=/dev/fb /dev/fb[0-9]*
+<kbd>=/dev/kbd
+<joystick>=/dev/js*
+<v4l>=/dev/video* /dev/radio* /dev/winradio* /dev/vtx* /dev/vbi*
+
+# permission definitions
+<console>  0660 <floppy>    0660 root.floppy
+<console>  0600 <sound>     0640 root.sys
+<console>  0600 <cdrom>     0600 root.disk
+<console>  0600 <pilot>     0660 root.tty
+<console>  0600 <jaz>       0660 root.disk
+<console>  0600 <zip>       0660 root.disk
+<console>  0600 <fb>        0600 root
+<console>  0600 <kbd>       0600 root
+<console>  0600 <joystick>  0600 root
+<console>  0600 <v4l>       0600 root
+
+<xconsole> 0600 /dev/console 0600 root.root

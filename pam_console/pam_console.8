@@ -1,0 +1,61 @@
+.\" Copyright 1999 Red Hat Software, Inc.
+.\" Written by Michael K. Johnson <johnsonm@redhat.com>
+.TH pam_console 8 1999/2/4 "Red Hat Software" "System Administrator's Manual"
+.SH NAME
+pam_console \- control permissions for users at the system console
+.SH SYNOPSIS
+.B session optional /lib/security/pam_console.so
+.br
+.B auth required /lib/security/pam_console.so
+.SH DESCRIPTION
+pam_console.so is designed to give users at the physical console
+(virtual terminals and local xdm-managed X sessions by default, but
+that is configurable) capabilities that they would not otherwise have,
+and to take those capabilities away when the are no longer logged in at
+the console.  It provides two main kinds of capabilities: file permissions
+and authentication.
+
+When a user logs in at the console and \fBno other user is currently
+logged in at the console\fP, pam_console.so will change permissions
+and ownership of files as described in the file /etc/security/console.perms.
+That user may then log in on other terminals that are considered part
+of the console, and as long as the user is still logged in at any one
+of those terminals, that user will own those devices.  When the user
+logs out of the last terminal, the console may be taken by the next
+user to log in.  Other users who have logged in at the console during
+the time that the first user was logged in will not be given ownership
+of the devices unless they log in on one of the terminals; having done
+so on any one terminal, the next user will own those devices until
+he or she has logged out of every terminal that is part of the physical
+console.  Then the race can start for the next user.  In practice, this
+is not a problem; the physical console is not generally in use by many
+people at the same time, and pam_console.so just tries to do the right
+thing in weird cases.
+.SH ARGUMENTS
+.IP debug
+turns on debugging
+.IP permsfile=\fIfilename\fP
+tells pam_console.so to get its permissions database from a different
+file than /etc/security/console.perms
+.\" .IP glob
+.\" \fBnot yet implemented\fP interpret strings as globs instead of
+.\" regexp expressions.
+.SH FILES
+\fI/var/lock/console.lock\fP
+.br
+\fI/var/lock/console/\fP
+.br
+\fI/etc/security/console.apps\fP
+.br
+\fI/etc/security/console.perms\fP
+.SH "SEE ALSO"
+.BR console.perms (5)
+.br
+.BR console.apps (5)
+.br
+\fI/usr/doc/pam*/html/index.html\fP
+.SH BUGS
+Let's hope not, but if you find any, please report them via the "Bug Track"
+link at http://developer.redhat.com/
+.SH AUTHOR
+Michael K. Johnson <johnsonm@redhat.com>

@@ -1,0 +1,44 @@
+.\" Copyright 1999 Red Hat Software, Inc.
+.\" Written by Michael K. Johnson <johnsonm@redhat.com>
+.TH console.perms 5 1999/2/3 "Red Hat Software" "System Administrator's Manual"
+.SH NAME
+console.perms \- permissions control file for users at the system console
+.SH DESCRIPTION
+/etc/security/console.perms determines the permissions that will be
+given to priviledged users of the console at login time, and the
+permissions to which to revert when the users log out.  It is
+read by the pam_console module.
+
+The format is:
+
+\f(CR<\fBclass\f(CR>=\fBspace-separated list of words
+
+\fBlogin-regexp\fI|\f(CR<\fBlogin-class\f(CR> \fBperm dev-glob\fI|\f(CR<\fBdev-class\f(CR> \e
+.br
+\f(CR        \fBrevert-mode revert-owner\fI[\fP.revert-group\fI]\fR
+
+The \fBrevert-mode\fP, \fBrevert-owner\fR, and revert-group fields are optional,
+and default to \fB0600\fP, \fBroot\fP, and \fBroot\fP, respectively.
+
+The words in a class definition are evaluated as globs if they
+refer to files, but as regular expressions if they apply to a
+console definition.  Do not mix them.
+
+Any line can be broken and continued on the next line by using a
+\e character as the last character on the line.
+
+The \fBlogin-class\fP class and the \fBlogin-regexp\fP word are evaluated as
+regular expressions.
+The \fBdev-class\fP and the \fBdev-glob\fP word are evaluated as
+shell-style globs.
+
+Classes are denoted by being contained in \f(CR<\fR angle bracket \f(CR>\fR
+characters; a lack of \f(CR<\fR angle brackets \f(CR>\fR indicates that
+the string is to be taken literally as a \fBlogin-regexp\fP or a
+\fBdev-glob\fP, depending on its input position.
+.SH "SEE ALSO"
+.BR pam_console (8)
+.br
+.BR console.apps (5)
+.SH AUTHOR
+Michael K. Johnson <johnsonm@redhat.com>

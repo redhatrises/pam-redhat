@@ -1,0 +1,19 @@
+#!/bin/sh
+
+[ -n "$1" ] || { echo $0: 'sed what file?' 1>&2 ; exit 1 ; }
+
+sed '
+/^YY_BUFFER_STATE yy_create_buffer/s/^/STATIC /
+/^void yy_delete_buffer/s/^/STATIC /
+/^void yy_flush_buffer/s/^/STATIC /
+/^void yy_init_buffer/s/^/STATIC /
+/^void yy_load_buffer_state/s/^/STATIC /
+/^void YY_BUFFER_STATE yy_scan_buffer/s/^/STATIC /
+/^YY_BUFFER_STATE yy_scan_bytes/s/^/STATIC /
+/^YY_BUFFER_STATE yy_scan_buffer/s/^/STATIC /
+/^YY_BUFFER_STATE yy_scan_string/s/^/STATIC /
+/^void yy_switch_to_buffer/s/^/STATIC /
+/define YY_DECL int yylex/s/YY_DECL /YY_DECL STATIC /
+/^int$/s/^/STATIC /
+/^void yyrestart/s/^/STATIC /
+' < $1 > sedtmp.$$ && mv sedtmp.$$ $1
