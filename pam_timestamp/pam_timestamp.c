@@ -64,40 +64,21 @@
 #define MODULE "pam_timestamp"
 #define TIMESTAMPDIR "/var/run/sudo"
 
+/* Return PAM_SUCCESS if the given directory looks "safe". */
 static int
-get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
-		   char *path, size_t len)
+check_dir_perms(const char *tdir)
 {
-	const char *user, *ruser, *tty;
-	const char *tdir = TIMESTAMPDIR;
-	char scratch[LINE_MAX > PATH_MAX ? LINE_MAX : PATH_MAX];
-	char *buf = NULL;
-	size_t bufsize = 0;
+	char scratch[PATH_MAX];
 	struct stat st;
-	struct passwd passwd, *pwd;
-	int i, debug = 0;
-
-	/* Parse arguments. */
-	for (i = 0; i < argc; i++) {
-		if (strcmp(argv[i], "debug") == 0) {
-			debug = 1;
-		}
-	}
-	for (i = 0; i < argc; i++) {
-		if (strncmp(argv[i], "timestampdir=", 13) == 0) {
-			tdir = argv[i] + 13;
-			if (debug) {
-				syslog(LOG_DEBUG,
-				       MODULE ": storing timestamps in `%s'",
-				       tdir);
-			}
-		}
-	}
+	int i;
 	/* Check that the directory is "safe". */
+	if (strlen(tdir) == 0) {
+		return PAM_AUTH_ERR;
+	}
 	memset(scratch, 0, sizeof(scratch));
-	for (i = 1; (tdir[0] != 0) && (tdir[i] != '\0'); i++) {
-		strncpy(scratch, tdir, i + 1);
-		if (scratch[i] == '/') {
+	for (i = 0; (tdir[i] != '\0') && (i < sizeof(scratch)); i++) {
+		scratch[i] = tdir[i];
+		if ((scratch[i] == '/') || (tdir[i + 1] == '\0')) {
 			if ((lstat(scratch, &st) == -1) && (errno != ENOENT)) {
 				syslog(LOG_ERR,
 				       MODULE ": unable to read `%s'",
@@ -135,6 +116,104 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 				return PAM_AUTH_ERR;
 			}
 		}
+	}
+	return PAM_SUCCESS;
+}
+
+/* Validate a tty pathname as actually belonging to a tty, and return its base
+ * name if it's valid. */
+static const char *
+check_tty(const char *tty)
+{
+	struct stat st;
+	/* Check that we're not being set up to take a fall. */
+	if (tty == NULL) {
+		return NULL;
+	}
+	if (strlen(tty) == 0) {
+		return NULL;
+	}
+	/* Make sure the tty isn't a directory. */
+	if (lstat(tty, &st) == -1) {
+		return NULL;
+	}
+	/* Make sure it's a special. */
+	if (!S_ISCHR(st.st_mode)) {
+		return NULL;
+	}
+	/* Pull out the meaningful part of the tty's name. */
+	if (strchr(tty, '/') != NULL) {
+		tty = strrchr(tty, '/') + 1;
+	}
+	/* Make sure the tty wasn't actually a directory. */
+	if (strlen(tty) == 0) {
+		return NULL;
+	}
+	return tty;
+}
+
+/* Determine the right path name for a given user's timestamp. */
+static int
+format_timestamp_name(char *path, size_t len,
+		      const char *timestamp_dir,
+		      const char *ruser,
+		      const char *tty,
+		      const char *user)
+{
+	if (strcmp(ruser, user) == 0) {
+		return snprintf(path, len, "%s/%s/%s", timestamp_dir,
+				ruser, tty);
+	} else {
+		return snprintf(path, len, "%s/%s/%s:%s", timestamp_dir,
+				ruser, tty, user);
+	}
+}
+
+/* Check if a given timestamp date, when compared to a current time, fits
+ * within the given interval. */
+static int
+timestamp_good(time_t then, time_t now, time_t interval)
+{
+	if (((now > then) && ((now - then) < interval)) ||
+	    ((now < then) && ((then - now) < (2 * interval)))) {
+		return PAM_SUCCESS;
+	}
+	return PAM_AUTH_ERR;
+}
+
+#ifndef PAM_TIMESTAMP_MAIN
+/* Get the path to the timestamp to use. */
+static int
+get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
+		   char *path, size_t len)
+{
+	const char *user, *ruser, *tty;
+	const char *tdir = TIMESTAMPDIR;
+	char scratch[LINE_MAX > PATH_MAX ? LINE_MAX : PATH_MAX];
+	char *buf = NULL;
+	size_t bufsize = 0;
+	struct passwd passwd, *pwd;
+	int i, debug = 0;
+
+	/* Parse arguments. */
+	for (i = 0; i < argc; i++) {
+		if (strcmp(argv[i], "debug") == 0) {
+			debug = 1;
+		}
+	}
+	for (i = 0; i < argc; i++) {
+		if (strncmp(argv[i], "timestampdir=", 13) == 0) {
+			tdir = argv[i] + 13;
+			if (debug) {
+				syslog(LOG_DEBUG,
+				       MODULE ": storing timestamps in `%s'",
+				       tdir);
+			}
+		}
+	}
+	i = check_dir_perms(tdir);
+	if (i != PAM_SUCCESS) {
+		return i;
 	}
 	/* Get the name of the target user. */
 	if (pam_get_item(pamh, PAM_USER, (const void**)&user) != PAM_SUCCESS) {
@@ -186,25 +265,14 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		syslog(LOG_DEBUG, MODULE ": tty is `%s'", tty);
 	}
 	/* Snip off all but the last part of the tty name. */
-	if (strchr(tty, '/') != NULL) {
-		tty = strrchr(tty, '/') + 1;
-	}
-	/* Make sure the tty isn't actually a directory. */
-	if (strlen(tty) == 0) {
+	tty = check_tty(tty);
+	if (tty == NULL) {
 		return PAM_AUTH_ERR;
 	}
 	/* Generate the name of the file used to cache auth results.  These
 	 * paths should jive with sudo's per-tty naming scheme. */
-	if (strcmp(ruser, user) == 0) {
-		if (snprintf(path, len, "%s/%s/%s",
-			     tdir, ruser, tty) > len - 1) {
-			return PAM_AUTH_ERR;
-		}
-	} else {
-		if (snprintf(path, len, "%s/%s/%s:%s",
-			     tdir, ruser, tty, user) > len - 1) {
-			return PAM_AUTH_ERR;
-		}
+	if (format_timestamp_name(path, len, tdir, ruser, tty, user) >= len) {
+		return PAM_AUTH_ERR;
 	}
 	if (debug) {
 		syslog(LOG_DEBUG, MODULE ": using timestamp file `%s'", path);
@@ -212,6 +280,7 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 	return PAM_SUCCESS;
 }
 
+/* Tell the user that access has been granted. */
 static void
 verbose_success(pam_handle_t *pamh, int debug, int diff)
 {
@@ -284,6 +353,12 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 	/* Check the date on the file. */
 	if (lstat(path, &st) == 0) {
+		/* Check that the file is owned by the superuser. */
+		if ((st.st_uid != 0) || (st.st_gid != 0)) {
+			syslog(LOG_ERR, MODULE ": timestamp file `%s' is "
+			       "not owned by root", path);
+			return PAM_AUTH_ERR;
+		}
 		/* Check that the file is a normal file. */
 		if (!(S_ISREG(st.st_mode))) {
 			syslog(LOG_ERR, MODULE ": timestamp file `%s' is "
@@ -292,7 +367,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		}
 		/* Compare the dates. */
 		now = time(NULL);
-		if ((now - st.st_mtime) < interval) {
+		if (timestamp_good(st.st_mtime, now, interval) == PAM_SUCCESS) {
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
 			       "only %ld seconds old, allowing access to %s "
 			       "for UID %ld", path, now - st.st_mtime,
@@ -384,3 +459,85 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	return PAM_SUCCESS;
 }
+
+#else /* PAM_TIMESTAMP_MAIN */
+
+#define USAGE "Usage: %s [-k] [target user]\n"
+
+int
+main(int argc, char **argv)
+{
+	char path[PATH_MAX];
+	const char *tty;
+	char *user;
+	const char *target_user;
+	struct passwd *pwd;
+	int kflag = 0, i;
+	struct stat st;
+
+	while ((i = getopt(argc, argv, "k")) != -1) {
+		switch (i) {
+			case 'k':
+				kflag++;
+				break;
+			default:
+				fprintf(stderr, USAGE, argv[0]);
+				return 1;
+				break;
+		}
+	}
+
+	if (geteuid() != 0) {
+		fprintf(stderr, "%s must be setuid root\n", argv[0]);
+		return 2;
+	}
+
+	tty = ttyname(STDIN_FILENO);
+	if (tty == NULL) {
+		fprintf(stderr, "no controlling tty\n");
+		return 3;
+	}
+
+	pwd = getpwuid(getuid());
+	if (pwd == NULL) {
+		return 4;
+	}
+	user = strdup(pwd->pw_name);
+	target_user = argc > 1 ? argv[1] : user;
+	if ((strchr(target_user, '.') != NULL) ||
+	    (strchr(target_user, '/') != NULL) ||
+	    (strchr(target_user, '%') != NULL)) {
+		fprintf(stderr, "unknown user\n");
+		return 4;
+	}
+
+	if (check_dir_perms(TIMESTAMPDIR) != PAM_SUCCESS) {
+		return 5;
+	}
+
+	tty = check_tty(ttyname(STDIN_FILENO));
+	if (tty == NULL) {
+		return 6;
+	}
+
+	format_timestamp_name(path, sizeof(path), TIMESTAMPDIR,
+			      user, tty, argc > 1 ? argv[1] : user);
+	if (kflag) {
+		/* Remove the timestamp. */
+		if (lstat(path, &st) != -1) {
+			unlink(path);
+			return 0;
+		}
+	} else {
+		/* Check the timestamp. */
+		if (lstat(path, &st) != -1) {
+			if (timestamp_good(st.st_mtime, time(NULL),
+					   DEFAULT_TIMESTAMP_TIMEOUT) == PAM_SUCCESS) {
+				return 0;
+			}
+		}
+	}
+
+	return 7;
+}
+#endif
