@@ -40,7 +40,7 @@
 <v4l>=/dev/video* /dev/radio* /dev/winradio* /dev/vtx* /dev/vbi* \
       /dev/video/*
 <gpm>=/dev/gpmctl
-<dri>=/dev/dri/* /dev/nvidia*
+<dri>=/dev/nvidia* /dev/3dfx*
 
 # permission definitions
 <console>  0660 <floppy>     0660 root.floppy
