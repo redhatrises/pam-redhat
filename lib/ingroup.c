@@ -34,6 +34,7 @@
  */
 
 #include "libmisc.h"
+#include <string.h>
 
 #ifdef HAVE_GETGROUPLIST
 static int

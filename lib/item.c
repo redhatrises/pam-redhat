@@ -37,14 +37,26 @@
 
 #include "../config.h"
 #include <security/pam_modules.h>
+#include "libmisc.h"
 
 int
-libmisc_get_string_item(pam_handle_t *pamh, int item, const char **ret)
+libmisc_get_string_item(pam_handle_t *pamh, int item, const char **value)
 {
-	return pam_get_item(pamh, item, (const void **)ret);
+	const void *r;
+	int ret;
+	ret = pam_get_item(pamh, item, &r);
+	if (r == PAM_SUCCESS) {
+		*value = r;
+	}
+	return ret;
 }
 int
-libmisc_set_string_item(pam_handle_t *pamh, int item, const char **ret)
+libmisc_set_string_item(pam_handle_t *pamh, int item, const char *value)
 {
-	return pam_set_item(pamh, item, (const void **)ret);
+	return pam_set_item(pamh, item, (const void*) value);
+}
+int
+libmisc_get_conv_item(pam_handle_t *pamh, const struct pam_conv **value)
+{
+	return pam_get_item(pamh, PAM_CONV, (const void**) value);
 }

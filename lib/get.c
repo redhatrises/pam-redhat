@@ -44,6 +44,7 @@
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "libmisc.h"
 
 static pthread_mutex_t getpw_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -91,7 +92,6 @@ libmisc_getpwnam(pam_handle_t *pamh, const char *user)
 
 	do {
 		int status;
-		struct passwd *tmppwd;
 
 		length += 256;
 		buffer = malloc(pwd_length + name_length + length);
@@ -163,7 +163,6 @@ libmisc_getpwuid(pam_handle_t *pamh, uid_t uid)
 
 	do {
 		int status;
-		struct passwd *tmppwd;
 
 		length += 256;
 		buffer = malloc(pwd_length + name_length + length);
@@ -235,7 +234,6 @@ libmisc_getgrnam(pam_handle_t *pamh, const char *group)
 
 	do {
 		int status;
-		struct group *tmpgrp;
 
 		length += 256;
 		buffer = malloc(grp_length + name_length + length);
@@ -307,7 +305,6 @@ libmisc_getgrgid(pam_handle_t *pamh, gid_t gid)
 
 	do {
 		int status;
-		struct group *tmpgrp;
 
 		length += 256;
 		buffer = malloc(grp_length + name_length + length);
