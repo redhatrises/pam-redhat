@@ -13,6 +13,12 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include "../../libpam/include/security/pam_modules.h"
+
+#define PAM_GETPWNAM_R
+#define PAM_GETPWUID_R
+#define PAM_GETGRNAM_R
+#include "../../libpam/include/security/_pam_macros.h"
 
 static GHashTable *namespace = NULL;
 static GSList *configList = NULL;
@@ -270,7 +276,8 @@ check_console_name (const char *consolename, int nonroot_ok) {
 STATIC int
 set_permissions(const char *consolename, const char *username, int nonroot_ok) {
     struct passwd passwd, *p;
-    char ubuf[LINE_MAX];
+    char *ubuf;
+    size_t ubuflen;
     config *c;
     GSList *cl;
 
@@ -278,7 +285,7 @@ set_permissions(const char *consolename, const char *username, int nonroot_ok) {
 	if (!check_console_name(consolename, nonroot_ok)) return -1;
     }
 
-    if (getpwnam_r(username, &passwd, ubuf, sizeof(ubuf), &p) != 0)
+    if (_pam_getpwnam_r(username, &passwd, &ubuf, &ubuflen, &p) != 0)
 	p = NULL;
     if (!p) {
 	_pam_log(LOG_ERR, FALSE, "getpwnam failed for \"%s\"", username);
@@ -294,6 +301,9 @@ set_permissions(const char *consolename, const char *username, int nonroot_ok) {
 		chmod_files(c->mode, p->pw_uid, -1, c->device_class->name, NULL);
 	}
     }
+    if (ubuf) {
+        free(ubuf);
+    }
     return 0;
 }
 
@@ -301,7 +311,8 @@ STATIC int
 reset_permissions(const char *consolename, int nonroot_ok) {
     struct passwd passwd, *p;
     struct group group, *g;
-    char ubuf[LINE_MAX], gbuf[LINE_MAX];
+    char *ubuf = NULL, *gbuf = NULL;
+    size_t ubuflen, gbuflen;
     config *c;
     GSList *cl;
 
@@ -312,20 +323,23 @@ reset_permissions(const char *consolename, int nonroot_ok) {
     for (cl = configList; cl; cl = cl->next) {
 	c = cl->data;
 	if (g_hash_table_lookup(consoleHash, c->console_class)) {
-            if (getpwnam_r(c->revert_owner ? c->revert_owner : "root", &passwd,
-                           ubuf, sizeof(ubuf), &p) != 0)
+            if (_pam_getpwnam_r(c->revert_owner ? c->revert_owner : "root",
+                                &passwd, &ubuf, &ubuflen, &p) != 0)
 		p = NULL;
 	    if (!p) {
 		_pam_log(LOG_ERR, FALSE, "getpwnam failed for %s",
 			 c->revert_owner ? c->revert_owner : "root");
 		return -1;
 	    }
-            if (getgrnam_r(c->revert_group ? c->revert_group : "root", &group,
-                           gbuf, sizeof(gbuf), &g) != 0)
+            if (_pam_getgrnam_r(c->revert_group ? c->revert_group : "root",
+                                &group, &gbuf, &gbuflen, &g) != 0)
 		g = NULL;
 	    if (!g) {
                 _pam_log(LOG_ERR, FALSE, "getgrnam failed for %s",
                          c->revert_group ? c->revert_group : "root");
+                if (ubuf) {
+                    free(ubuf);
+                }
                 return -1;
             }
 	    if (c->device_class->list)
@@ -335,6 +349,12 @@ reset_permissions(const char *consolename, int nonroot_ok) {
 		chmod_files(c->revert_mode ? c->revert_mode : "0600",
 			    p->pw_uid, g->gr_gid, c->device_class->name, NULL);
 	}
+    }
+    if (ubuf) {
+        free(ubuf);
+    }
+    if (gbuf) {
+        free(gbuf);
     }
     return 0;
 }

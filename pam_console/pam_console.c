@@ -40,8 +40,8 @@
 
 #define PAM_SM_AUTH
 #define PAM_SM_SESSION
-#include <security/pam_modules.h>
-#include <security/_pam_macros.h>
+#include "../../libpam/include/security/pam_modules.h"
+#include "../../libpam/include/security/_pam_macros.h"
 /* In order to avoid errors in pam_get_item(), we need a very
  * unfortunate cast.  This is a terrible design error in PAM
  * that Linux-PAM slavishly follows.  :-(
@@ -107,14 +107,17 @@ is_root(const char *username) {
      * whole point of this is to avoid doing unnecessary file ops
      */
     struct passwd *p, pwd;
-    char ubuf[LINE_MAX];
+    char *ubuf = NULL;
+    size_t ubuflen;
 
-    if (getpwnam_r(username, &pwd, ubuf, sizeof(ubuf), &p) != 0)
+    if (_pam_getpwnam_r(username, &pwd, &ubuf, &ubuflen, &p) != 0)
 	p = NULL;
     if (!p) {
-        _pam_log(LOG_ERR, FALSE,
-        	 "getpwnam failed for %s", username);
+        _pam_log(LOG_ERR, FALSE, "getpwnam failed for %s", username);
         return 0;
+    }
+    if (ubuf) {
+	free(ubuf);
     }
     return !p->pw_uid;
 }
@@ -266,7 +269,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
     char *lockfile = NULL;
     char *appsfile = NULL;
     char *service;
-    char gbuf[LINE_MAX];
+    char *gbuf = NULL;
+    size_t gbuflen;
     int ret = PAM_AUTH_ERR;
 
     D(("called."));
@@ -277,7 +281,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
      * pam_console white paper */
     if (!getuid()) return PAM_SUCCESS; /* root always trivially succeeds */
 
-    if (getpwuid_r(getuid(), &pwd, gbuf, sizeof(gbuf), &p) != 0)
+    if (_pam_getpwuid_r(getuid(), &pwd, &gbuf, &gbuflen, &p) != 0)
 	p = NULL;
     if (!p) {
 	_pam_log(LOG_ERR, FALSE, "user with id %d not found", getuid());

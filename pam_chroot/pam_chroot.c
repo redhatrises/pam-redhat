@@ -8,7 +8,7 @@
 
 #include <_pam_aconf.h>
 
-#include <security/pam_modules.h>
+#include "../../libpam/include/security/pam_modules.h"
 
 #include <syslog.h>
 #include <string.h>
