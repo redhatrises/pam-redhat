@@ -18,10 +18,7 @@
 #define STATIC static
 #include "pam_console.h"
 
-#define PAM_GETPWNAM_R
-#define PAM_GETPWUID_R
-#define PAM_GETGRNAM_R
-#include "../../libpam/include/security/_pam_macros.h"
+#include <security/_pam_macros.h>
 
 #define CAST_ME_HARDER (const void**)
 
@@ -99,10 +96,10 @@ main(int argc, char **argv)
 		sense = Reset;
 	}
 	if((sense == Set) && (consoleuser != NULL)) {
-		set_permissions("tty0", consoleuser, TRUE);
+		set_permissions(NULL, "tty0", consoleuser, TRUE);
 	}
 	if(sense == Reset) {
-		reset_permissions("tty0", TRUE);
+		reset_permissions(NULL, "tty0", TRUE);
 	}
 	return 0;
 

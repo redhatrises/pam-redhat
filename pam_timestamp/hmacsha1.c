@@ -186,7 +186,7 @@ hmac_sha1_generate(char **mac, size_t *mac_length,
 	*mac = NULL;
 	*mac_length = 0;
 
-#if 0
+#ifndef HMAC_ALLOW_SHORT_KEYS
 	/* If the key is too short, don't bother. */
 	if (raw_key_size < minimum_key_size) {
 		return;

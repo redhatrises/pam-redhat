@@ -51,6 +51,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <security/pam_modules.h>
+#include <security/_pam_modutil.h>
 
 #define MODULE "pam_succeed_if"
 
@@ -192,56 +193,15 @@ evaluate_noglob(const char *left, const char *right)
 {
 	return (fnmatch(right, left, 0) != 0) ? PAM_SUCCESS : PAM_AUTH_ERR;
 }
-/* Check if the GID of the named group shows up in the list.  If we can't
- * determine the group's GID, return -1.  Return 1 if it is in the list, and
- * 0 if it is not. */
-static int
-groupinlist(const char *group, gid_t *grouplist, size_t grlistlen)
-{
-	struct group grp, *pgrp;
-	size_t grbuflen;
-	char *grbuf;
-	int ret, i;
-
-	grbuflen = 2;
-	do {
-		grbuf = malloc(grbuflen);
-		pgrp = NULL;
-		ret = getgrnam_r(group, &grp, grbuf, grbuflen, &pgrp);
-		if (((ret == -1) || (pgrp == NULL)) && (errno == ERANGE)) {
-			free(grbuf);
-			grbuflen *= 2;
-		}
-	} while (((pgrp == NULL) || (ret == -1)) && (errno == ERANGE));
-
-	free(grbuf);
-
-	if ((ret != 0) || (pgrp == NULL)) {
-		log_error(LOG_INFO,
-			  "error reading information about group \"%s\"",
-			  group);
-		return -1;
-	}
-
-	for (i = 0; i < grlistlen; i++) {
-		if (grouplist[i] == pgrp->gr_gid) {
-			return 1;
-		}
-	}
-	return 0;
-}
 /* Return PAM_SUCCESS if the user is in the group. */
 static int
-evaluate_ingroup(const char *right, gid_t *grouplist, size_t grlistlen)
+evaluate_ingroup(pam_handle_t *pamh, const char *user, const char *group)
 {
 	int ret;
-	ret = groupinlist(right, grouplist, grlistlen);
+	ret = _pammodutil_user_in_group_nam_nam(pamh, user, group);
 	switch (ret) {
 	case 1:
 		return PAM_SUCCESS;
-		break;
-	case -1:
-		return PAM_SERVICE_ERR;
 		break;
 	default:
 		break;
@@ -250,16 +210,13 @@ evaluate_ingroup(const char *right, gid_t *grouplist, size_t grlistlen)
 }
 /* Return PAM_SUCCESS if the user is NOT in the group. */
 static int
-evaluate_notingroup(const char *right, gid_t *grouplist, size_t grlistlen)
+evaluate_notingroup(pam_handle_t *pamh, const char *user, const char *group)
 {
 	int ret;
-	ret = groupinlist(right, grouplist, grlistlen);
+	ret = _pammodutil_user_in_group_nam_nam(pamh, user, group);
 	switch (ret) {
 	case 0:
 		return PAM_SUCCESS;
-		break;
-	case -1:
-		return PAM_SERVICE_ERR;
 		break;
 	default:
 		break;
@@ -269,10 +226,12 @@ evaluate_notingroup(const char *right, gid_t *grouplist, size_t grlistlen)
 
 /* Match a triple. */
 static int
-evaluate(const char *left, const char *qual, const char *right,
+evaluate(pam_handle_t *pamh, int debug,
+	 const char *left, const char *qual, const char *right,
 	 struct passwd *pwd, gid_t *grouplist, size_t grlistlen)
 {
 	char buf[LINE_MAX] = "";
+	const char *attribute = left;
 	/* Figure out what we're evaluating here, and convert it to a string.*/
 	if ((strcasecmp(left, "login") == 0) ||
 	    (strcasecmp(left, "name") == 0) ||
@@ -302,6 +261,9 @@ evaluate(const char *left, const char *qual, const char *right,
 	if (left != buf) {
 		log_error(LOG_CRIT, "unknown attribute \"%s\"", left);
 		return PAM_SERVICE_ERR;
+	}
+	if (debug) {
+		log_error(LOG_DEBUG, "'%s' resolves to '%s'", attribute, left);
 	}
 
 	/* Attribute value < some threshold. */
@@ -351,11 +313,11 @@ evaluate(const char *left, const char *qual, const char *right,
 	}
 	/* User is in this group. */
 	if (strcasecmp(qual, "ingroup") == 0) {
-		return evaluate_ingroup(right, grouplist, grlistlen);
+		return evaluate_ingroup(pamh, pwd->pw_name, right);
 	}
 	/* User is not in this group. */
 	if (strcasecmp(qual, "notingroup") == 0) {
-		return evaluate_notingroup(right, grouplist, grlistlen);
+		return evaluate_notingroup(pamh, pwd->pw_name, right);
 	}
 	/* Fail closed. */
 	return PAM_SERVICE_ERR;
@@ -366,11 +328,10 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	const char *prompt;
 	const char *user;
-	struct passwd pwd, *ppwd;
-	char *pwbuf = NULL;
+	struct passwd *pwd;
 	gid_t *grouplist = NULL;
-	size_t pwbuflen = 2, grlistlen = 2;
-	int ret, i, count;
+	size_t grlistlen = 2;
+	int ret, i, count, use_uid, debug;
 	const char *left, *right, *qual;
 
 	/* Get the user prompt. */
@@ -379,38 +340,48 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		prompt = "login: ";
 	}
 
-	/* Get the user's name. */
-	ret = pam_get_user(pamh, &user, prompt);
-	if ((ret != PAM_SUCCESS) || (user == NULL)) {
-		log_error(LOG_CRIT, "error retrieving user name: %s",
-			  pam_strerror(pamh, ret));
-		return ret;
+	for (use_uid = 0, debug = 0, i = 0; i < argc; i++) {
+		if (strcmp(argv[i], "debug") == 0) {
+			debug++;
+		}
+		if (strcmp(argv[i], "use_uid") == 0) {
+			use_uid++;
+		}
 	}
 
-	/* Get information about the user. */
-	pwbuflen = 2;
-	do {
-		pwbuf = malloc(pwbuflen);
-		ppwd = NULL;
-		ret = getpwnam_r(user, &pwd, pwbuf, pwbuflen, &ppwd);
-		if (((ret == -1) || (ppwd == NULL)) && (errno == ERANGE)) {
-			free(pwbuf);
-			pwbuflen *= 2;
+	if (use_uid) {
+		/* Get information about the user. */
+		pwd = _pammodutil_getpwuid(pamh, getuid());
+		if (pwd == NULL) {
+			log_error(LOG_CRIT,
+				  "error retrieving information about user %ld",
+				  (long)getuid());
+			return PAM_SERVICE_ERR;
 		}
-	} while (((ppwd == NULL) || (ret == -1)) && (errno == ERANGE));
+	} else {
+		/* Get the user's name. */
+		ret = pam_get_user(pamh, &user, prompt);
+		if ((ret != PAM_SUCCESS) || (user == NULL)) {
+			log_error(LOG_CRIT, "error retrieving user name: %s",
+				  pam_strerror(pamh, ret));
+			return ret;
+		}
 
-	if ((ret != 0) || (ppwd == NULL)) {
-		free(pwbuf);
-		log_error(LOG_CRIT,
-			  "error retrieving information about user %s", user);
-		return PAM_SERVICE_ERR;
+		/* Get information about the user. */
+		pwd = _pammodutil_getpwnam(pamh, user);
+		if (pwd == NULL) {
+			log_error(LOG_CRIT,
+				  "error retrieving information about user %s",
+				  user);
+			return PAM_SERVICE_ERR;
+		}
 	}
 
 	/* Get the user's supplemental group list. */
 	grlistlen = 2;
 	do {
 		grouplist = malloc(sizeof(gid_t) * grlistlen);
-		ret = getgrouplist(ppwd->pw_name, ppwd->pw_gid,
+		ret = getgrouplist(pwd->pw_name, pwd->pw_gid,
 				   grouplist, &grlistlen);
 		if (ret == -1) {
 			free(grouplist);
@@ -428,8 +399,9 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	left = qual = right = NULL;
 	while (i <= argc) {
 		if ((left != NULL) && (qual != NULL) && (right != NULL)) {
-			ret = evaluate(left, qual, right,
-				       ppwd, grouplist, grlistlen);
+			ret = evaluate(pamh, debug,
+				       left, qual, right,
+				       pwd, grouplist, grlistlen);
 			if (ret != PAM_SUCCESS) {
 				log_error(LOG_INFO,
 					  "requirement \"%s %s %s\" "
@@ -438,6 +410,14 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 				break;
 			}
 			left = qual = right = NULL;
+		}
+		if (strcmp(argv[i], "debug") == 0) {
+			i++;
+			continue;
+		}
+		if (strcmp(argv[i], "use_uid") == 0) {
+			i++;
+			continue;
 		}
 		if ((i < argc) && (left == NULL)) {
 			left = argv[i++];

@@ -5,6 +5,7 @@
 #ifndef _PAM_CONSOLE_H
 #define _PAM_CONSOLE_H
 #include <glib.h>
+#include <security/pam_modules.h>
 #include "chmod.h"
 
 typedef struct class_s class;
@@ -37,9 +38,9 @@ STATIC int
 check_console_name (const char *consolename, int allow_nonroot);
 
 STATIC int
-set_permissions(const char *consolename, const char *username, int allow_nonroot);
+set_permissions(pam_handle_t *pamh, const char *consolename, const char *username, int allow_nonroot);
 
 STATIC int
-reset_permissions(const char *consolename, int allow_nonroot);
+reset_permissions(pam_handle_t *pamh, const char *consolename, int allow_nonroot);
 
 #endif /* _PAM_CONSOLE_H */

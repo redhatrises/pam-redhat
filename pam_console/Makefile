@@ -10,7 +10,7 @@ TITLE=pam_console
 
 LOCKDIR = /var/run/console
 LOCKMODE = 755
-LIBS +=  $(shell glib-config --libs)
+LIBS +=  $(shell glib-config --libs) -L../pammodutil -lpammodutil
 LDFLAGS = $(LIBS)
 
 BINARY = pam_console_apply
@@ -20,7 +20,7 @@ INSTALLED_CONFILE = $(SCONFIGD)/console.perms
 MAN5 = console.apps.5 console.perms.5
 MAN8 = pam_console.8 pam_console_apply.8
 
-CFLAGS += $(shell glib-config --cflags) -D_GNU_SOURCE -DLOCKDIR=\"$(LOCKDIR)\"
+CFLAGS += $(shell glib-config --cflags) -D_GNU_SOURCE -DLOCKDIR=\"$(LOCKDIR)\" -I../pammodutil/include
 
 FLEX_OPTS = -Cr
 BISON_OPTS = -d
@@ -62,7 +62,7 @@ ifdef STATIC
 endif
 
 $(BINARY): $(BINSRC)
-	$(CC) $(CFLAGS) $(TARGET_ARCH) -o $@ $^ -Wl,-Bstatic $(LDFLAGS) -Wl,-Bdynamic -lc
+	$(CC) $(CFLAGS) $(TARGET_ARCH) -o $@ $^ -Wl,-Bstatic $(LDFLAGS) -Wl,-Bdynamic ../../libpam/libpam.so -lc
 
 ifdef DYNAMIC
 $(LIBOBJD): $(LIBSRC)
@@ -89,16 +89,16 @@ ifdef DYNAMIC
 	$(INSTALL) -m $(SHLIBMODE) $(LIBSHARED) $(FAKEROOT)$(SECUREDIR)
 endif
 ifdef MAN3
-	test -d $(FAKEROOT)$(mandir)/man3 || $(MKDIR) $(FAKEROOT)$(mandir)/man3
-	$(INSTALL) -m $(MANMODE) $(MAN3) $(FAKEROOT)$(mandir)/man3/
+	test -d $(FAKEROOT)$(MANDIR)/man3 || $(MKDIR) $(FAKEROOT)$(MANDIR)/man3
+	$(INSTALL) -m $(MANMODE) $(MAN3) $(FAKEROOT)$(MANDIR)/man3/
 endif
 ifdef MAN5
-	test -d $(FAKEROOT)$(mandir)/man5 || $(MKDIR) $(FAKEROOT)$(mandir)/man5
-	$(INSTALL) -m $(MANMODE) $(MAN5) $(FAKEROOT)$(mandir)/man5/
+	test -d $(FAKEROOT)$(MANDIR)/man5 || $(MKDIR) $(FAKEROOT)$(MANDIR)/man5
+	$(INSTALL) -m $(MANMODE) $(MAN5) $(FAKEROOT)$(MANDIR)/man5/
 endif
 ifdef MAN8
-	test -d $(FAKEROOT)$(mandir)/man8 || $(MKDIR) $(FAKEROOT)$(mandir)/man8
-	$(INSTALL) -m $(MANMODE) $(MAN8) $(FAKEROOT)$(mandir)/man8/
+	test -d $(FAKEROOT)$(MANDIR)/man8 || $(MKDIR) $(FAKEROOT)$(MANDIR)/man8
+	$(INSTALL) -m $(MANMODE) $(MAN8) $(FAKEROOT)$(MANDIR)/man8/
 endif
 	$(MKDIR) -m $(LOCKMODE) $(FAKEROOT)$(LOCKDIR) $(FAKEROOT)/$(SCONFIGD)/console.apps && bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONFILE)" "$(TITLE)" "$(LOCAL_CONFILE)"
 	test -d  $(FAKEROOT)$(SUPLEMENTED) || install -m 755 -d $(FAKEROOT)$(SUPLEMENTED)

@@ -41,6 +41,8 @@
 #define PAM_SM_AUTH
 #define PAM_SM_SESSION
 
+#include "../../_pam_aconf.h"
+
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -53,17 +55,19 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "hmacsha1.h"
 
-#define PAM_GETPWUID_R
 #include "../../_pam_aconf.h"
-#include "../../libpam/include/security/_pam_macros.h"
-#include "../../libpam/include/security/pam_modules.h"
+#include <security/pam_modules.h>
+#include <security/_pam_macros.h>
+#include <security/_pam_modutil.h>
 
 /* The default timeout we use is 5 minutes, which matches the sudo default
  * for the timestamp_timeout parameter. */
 #define DEFAULT_TIMESTAMP_TIMEOUT (5 * 60)
 #define MODULE "pam_timestamp"
 #define TIMESTAMPDIR "/var/run/sudo"
+#define TIMESTAMPKEY TIMESTAMPDIR "/_pam_timestamp_key"
 
 /* Various buffers we use need to be at least as large as either PATH_MAX or
  * LINE_MAX, so choose the larger of the two. */
@@ -195,9 +199,7 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 	const char *user, *ruser, *tty;
 	const char *tdir = TIMESTAMPDIR;
 	char scratch[BUFLEN];
-	char *buf = NULL;
-	size_t bufsize = 0;
-	struct passwd passwd, *pwd;
+	struct passwd *pwd;
 	int i, debug = 0;
 
 	/* Parse arguments. */
@@ -236,13 +238,13 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 	}
 	if ((ruser == NULL) || (strlen(ruser) == 0)) {
 		/* Barring that, use the current RUID. */
-		if (_pam_getpwuid_r(getuid(), &passwd, &buf, &bufsize, &pwd) == 0) {
+		pwd = _pammodutil_getpwuid(pamh, getuid());
+		if (pwd != NULL) {
 			if (strlen(pwd->pw_name) < sizeof(scratch)) {
 				strncpy(scratch, pwd->pw_name, sizeof(scratch));
 				scratch[sizeof(scratch) - 1] = '\0';
 				ruser = scratch;
 			}
-			free(buf);
 		}
 	}
 	if ((ruser == NULL) || (strlen(ruser) == 0)) {
@@ -319,11 +321,12 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	struct stat st;
 	time_t interval = DEFAULT_TIMESTAMP_TIMEOUT;
-	int i, debug = 0, verbose = 0;
-	char path[BUFLEN];
+	int i, fd, debug = 0, verbose = 0;
+	char path[BUFLEN], *p, *message, *message_end;
 	long tmp;
-	const char *service = "(unknown)", *p;
-	time_t now;
+	const char *service = "(unknown)";
+	time_t now, then;
+
 	/* Parse arguments. */
 	for (i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "debug") == 0) {
@@ -350,11 +353,13 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			}
 		}
 	}
+
 	/* Get the name of the timestamp file. */
 	if (get_timestamp_name(pamh, argc, argv,
 			       path, sizeof(path)) != PAM_SUCCESS) {
 		return PAM_AUTH_ERR;
 	}
+
 	/* Get the name of the service. */
 	if (pam_get_item(pamh, PAM_SERVICE, (const void**)&service) != PAM_SUCCESS) {
 		service = NULL;
@@ -362,23 +367,84 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	if ((service == NULL) || (strlen(service) == 0)) {
 		service = "(unknown)";
 	}
-	/* Check the date on the file. */
-	if (lstat(path, &st) == 0) {
+
+	/* Open the timestamp file. */
+	fd = open(path, O_RDONLY | O_NOFOLLOW);
+	if (fd == -1) {
+		return PAM_AUTH_ERR;
+	}
+
+	if (fstat(fd, &st) == 0) {
+		int count;
+		char *mac;
+		size_t maclen;
+
 		/* Check that the file is owned by the superuser. */
 		if ((st.st_uid != 0) || (st.st_gid != 0)) {
 			syslog(LOG_ERR, MODULE ": timestamp file `%s' is "
 			       "not owned by root", path);
+			close(fd);
 			return PAM_AUTH_ERR;
 		}
+
 		/* Check that the file is a normal file. */
 		if (!(S_ISREG(st.st_mode))) {
 			syslog(LOG_ERR, MODULE ": timestamp file `%s' is "
 			       "not a regular file", path);
+			close(fd);
 			return PAM_AUTH_ERR;
 		}
+
+		/* Check that the file is the expected size. */
+		if (st.st_size == 0) {
+			/* Invalid, but may have been created by sudo. */
+			close(fd);
+			return PAM_AUTH_ERR;
+		}
+		if (st.st_size !=
+		    strlen(path) + 1 + sizeof(then) + hmac_sha1_size()) {
+			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' "
+			       "appears to be corrupted", path);
+			close(fd);
+			return PAM_AUTH_ERR;
+		}
+
+		/* Read the file contents. */
+		message = malloc(st.st_size);
+		count = 0;
+		while (count < st.st_size) {
+			i = read(fd, message + count, st.st_size - count);
+			if ((i == 0) || (i == -1)) {
+				break;
+			}
+			count += i;
+		}
+		if (count < st.st_size) {
+			syslog(LOG_NOTICE, MODULE ": error reading timestamp "
+				"file `%s'", path);
+			close(fd);
+			return PAM_AUTH_ERR;
+		}
+		message_end = message + strlen(path) + 1 + sizeof(then);
+
+		/* Regenerate the MAC. */
+		hmac_sha1_generate_file(&mac, &maclen, TIMESTAMPKEY, 0, 0,
+					message, message_end - message);
+		if ((mac == NULL) ||
+		    (memcmp(path, message, strlen(path)) != 0) ||
+		    (memcmp(mac, message_end, maclen) != 0)) {
+			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
+				"corrupted", path);
+			close(fd);
+			return PAM_AUTH_ERR;
+		}
+		free(mac);
+		memmove(&then, message + strlen(path) + 1, sizeof(then));
+		free(message);
+
 		/* Compare the dates. */
 		now = time(NULL);
-		if (timestamp_good(st.st_mtime, now, interval) == PAM_SUCCESS) {
+		if (timestamp_good(then, now, interval) == PAM_SUCCESS) {
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
 			       "only %ld seconds old, allowing access to %s "
 			       "for UID %ld", path, now - st.st_mtime,
@@ -394,6 +460,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			return PAM_AUTH_ERR;
 		}
 	}
+	close(fd);
+
 	/* Fail by default. */
 	return PAM_AUTH_ERR;
 }
@@ -407,21 +475,26 @@ pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
 PAM_EXTERN int
 pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
-	struct stat st;
-	char path[BUFLEN], subdir[BUFLEN];
+	char path[BUFLEN], subdir[BUFLEN], *mac, *text, *p;
+	size_t maclen;
+	time_t now;
 	int fd, i, debug = 0;
+
 	/* Parse arguments. */
 	for (i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "debug") == 0) {
 			debug = 1;
 		}
 	}
+
 	/* Get the name of the timestamp file. */
 	if (get_timestamp_name(pamh, argc, argv,
 			       path, sizeof(path)) != PAM_SUCCESS) {
 		return PAM_SESSION_ERR;
 	}
-	/* Create a timestamp file if it doesn't already exist. */
+
+	/* Create the directory for the timestamp file if it doesn't already
+	 * exist. */
 	for (i = 1; path[i] != '\0'; i++) {
 		if (path[i] == '/') {
 			/* Attempt to create the directory. */
@@ -443,27 +516,58 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			}
 		}
 	}
+
+	/* Generate the message. */
+	text = malloc(strlen(path) + 1 + sizeof(now) + hmac_sha1_size());
+	if (text == NULL) {
+		syslog(LOG_ERR, MODULE ": unable to allocate memory: %m");
+		return PAM_SESSION_ERR;
+	}
+	p = text;
+
+	strcpy(text, path);
+	p += strlen(path) + 1;
+
+	now = time(NULL);
+	memmove(p, &now, sizeof(now));
+	p += sizeof(now);
+
+	/* Generate the MAC and append it to the plaintext. */
+	hmac_sha1_generate_file(&mac, &maclen,
+				TIMESTAMPKEY,
+				0, 0,
+				text, p - text);
+	if (mac == NULL) {
+		syslog(LOG_ERR, MODULE ": failure generating MAC: %m");
+		free(text);
+		return PAM_SESSION_ERR;
+	}
+	memmove(p, mac, maclen);
+	p += maclen;
+	free(mac);
+
 	/* Open the file. */
-	fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+	fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (fd == -1) {
 		syslog(LOG_ERR, MODULE ": unable to open `%s': %m", path);
+		free(text);
 		return PAM_SESSION_ERR;
 	}
+
 	/* Attempt to set the owner to the superuser. */
 	fchown(fd, 0, 0);
-	/* Write a single byte to the file, and then truncate it. */
-	if (write(fd, path, 1) != 1) {
+
+	/* Write the timestamp to the file. */
+	if (write(fd, text, p - text) != p - text) {
 		syslog(LOG_ERR, MODULE ": unable to write to `%s': %m", path);
 		close(fd);
+		free(text);
 		return PAM_SESSION_ERR;
 	}
-	if (ftruncate(fd, 0) != 0) {
-		syslog(LOG_ERR, MODULE ": unable to write to `%s': %m", path);
-		close(fd);
-		return PAM_SESSION_ERR;
-	}
+
 	/* Close the file and return successfully. */
 	close(fd);
+	free(text);
 	syslog(LOG_DEBUG, MODULE ": updated timestamp file `%s'", path);
 	return PAM_SUCCESS;
 }

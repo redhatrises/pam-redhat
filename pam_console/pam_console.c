@@ -39,13 +39,10 @@
 #define STATIC static
 #include "pam_console.h"
 
-#define PAM_SM_AUTH
-#define PAM_SM_SESSION
-#include "../../libpam/include/security/pam_modules.h"
-#define PAM_GETPWNAM_R
-#define PAM_GETPWUID_R
-#define PAM_GETGRNAM_R
-#include "../../libpam/include/security/_pam_macros.h"
+#include <security/pam_modules.h>
+#include <security/_pam_macros.h>
+#include <security/_pam_modutil.h>
+
 /* In order to avoid errors in pam_get_item(), we need a very
  * unfortunate cast.  This is a terrible design error in PAM
  * that Linux-PAM slavishly follows.  :-(
@@ -106,24 +103,18 @@ _args_parse(int argc, const char **argv)
 }
 
 static int
-is_root(const char *username) {
+is_root(pam_handle_t *pamh, const char *username) {
     /* this should correspond to suser() in the kernel, since the
      * whole point of this is to avoid doing unnecessary file ops
      */
-    struct passwd *p, pwd;
-    char *ubuf = NULL;
-    size_t ubuflen;
+    struct passwd *pwd;
 
-    if (_pam_getpwnam_r(username, &pwd, &ubuf, &ubuflen, &p) != 0)
-	p = NULL;
-    if (!p) {
+    pwd = _pammodutil_getpwnam(pamh, username);
+    if (pwd == NULL) {
         _pam_log(LOG_ERR, FALSE, "getpwnam failed for %s", username);
         return 0;
     }
-    if (ubuf) {
-	free(ubuf);
-    }
-    return !p->pw_uid;
+    return !pwd->pw_uid;
 }
 
 static int
@@ -269,12 +260,10 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
    * and the service name must be listed in
    * /etc/security/console-apps
    */
-    struct passwd *p, pwd;
+    struct passwd *pwd;
     char *lockfile = NULL;
     char *appsfile = NULL;
     char *service;
-    char *gbuf = NULL;
-    size_t gbuflen;
     int ret = PAM_AUTH_ERR;
 
     D(("called."));
@@ -283,17 +272,16 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
     /* FIXME: this appears to be unnecessary, since I always see pam_rootok
      * listed before this module -- remove if not explicitly required by the
      * pam_console white paper */
-    if (!getuid()) return PAM_SUCCESS; /* root always trivially succeeds */
+    if (getuid() == 0) return PAM_SUCCESS; /* root always trivially succeeds */
 
-    if (_pam_getpwuid_r(getuid(), &pwd, &gbuf, &gbuflen, &p) != 0)
-	p = NULL;
-    if (!p) {
+    pwd = _pammodutil_getpwuid(pamh, getuid());
+    if (pwd == NULL) {
 	_pam_log(LOG_ERR, FALSE, "user with id %d not found", getuid());
 	return PAM_AUTH_ERR;
     }
 
-    lockfile = _do_malloc(strlen(consolerefs) + strlen(p->pw_name) + 2);
-    sprintf(lockfile, "%s%s", consolerefs, p->pw_name); /* trusted data */
+    lockfile = _do_malloc(strlen(consolerefs) + strlen(pwd->pw_name) + 2);
+    sprintf(lockfile, "%s%s", consolerefs, pwd->pw_name); /* trusted data */
 
     pam_get_item(pamh, PAM_SERVICE, CAST_ME_HARDER &service);
     appsfile = _do_malloc(strlen(consoleapps) + strlen(service) + 2);
@@ -301,7 +289,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
     if (access(lockfile, F_OK) < 0) {
 	_pam_log(LOG_ERR, TRUE,
-		 "user %s not a console user", p->pw_name);
+		 "user %s not a console user", pwd->pw_name);
 	ret = PAM_AUTH_ERR; goto error_return;
     }
 
@@ -354,7 +342,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	         username ? username : "(null)");
 	return PAM_SESSION_ERR;
     }
-    if (is_root(username)) {
+    if (is_root(pamh, username)) {
         _pam_log(LOG_DEBUG, TRUE, "user \"%s\" is root", username);
 	return PAM_SUCCESS;
     }
@@ -380,7 +368,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (got_console) {
 	_pam_log(LOG_DEBUG, TRUE, "%s is console user", username);
 	/* woohoo!  We got here first, grab ownership and perms... */
-	set_permissions(tty, username, allow_nonroot_tty);
+	set_permissions(pamh, tty, username, allow_nonroot_tty);
 	/* errors will be logged and are not critical */
         ret = PAM_SUCCESS;
     }
@@ -416,7 +404,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     pam_get_item(pamh, PAM_USER, (const void **) &username);
 
     if (!username || !username[0]) return PAM_SESSION_ERR;
-    if (is_root(username)) return PAM_SUCCESS;
+    if (is_root(pamh, username)) return PAM_SUCCESS;
     pam_get_item(pamh, PAM_TTY, CAST_ME_HARDER &tty);
     if (!tty || !tty[0]) return PAM_SESSION_ERR;
 
@@ -454,7 +442,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	    if (!strcmp(username, consoleuser)) {
 		delete_consolelock = 1;
-		reset_permissions(tty, allow_nonroot_tty);
+		reset_permissions(pamh, tty, allow_nonroot_tty);
 		/* errors will be logged and at this stage we cannot do
 		 * anything about them...
 		 */

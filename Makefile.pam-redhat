@@ -1,11 +1,14 @@
-VERSION=0.75
-RELEASE=49
+VERSION=0.77
+RELEASE=1
 CVSTAG=pam-redhat-$(shell echo $(VERSION) | sed s,\\.,-,g)-$(RELEASE)
 CVS_ROOT=$(shell cat CVS/Root)
 
 nothing:
 
 tag:
+	cvs tag -cR $(CVSTAG) . 
+
+force-tag:
 	cvs tag -cFR $(CVSTAG) . 
 
 archive: tag

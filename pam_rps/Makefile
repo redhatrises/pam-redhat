@@ -1,11 +1,16 @@
-CFLAGS=-Wall
-LIBTOOL=libtool --tag=CC
+#
+# $Id$
+#
+# This Makefile controls a build process of $(TITLE) module for
+# Linux-PAM. You should not modify this Makefile (unless you know
+# what you are doing!).
+#
+# Created by Andrew Morgan <morgan@linux.kernel.org> 2000/08/27
+#
 
-pam_rps.so: pam_rps.lo
-	$(LIBTOOL) --mode=link    $(CC) -shared -o $@ $^ -lpam
+include ../../Make.Rules
 
-pam_rps.lo: pam_rps.c
-	$(LIBTOOL) --mode=compile $(CC) $(CFLAGS) -c -o $@ $^
+TITLE=pam_rps
+MAN8=$(TITLE).8
 
-clean:
-	$(RM) *.o *.lo *.so
+include ../Simple.Rules

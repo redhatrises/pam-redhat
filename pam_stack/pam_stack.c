@@ -38,6 +38,10 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * $Log$
+ * Revision 1.29  2003/07/08 03:16:28  nalin
+ * - port to 0.77, mainly using the new pammodutil getXXXXX_r wrappers instead of
+ *   the macro forms we used for 0.75
+ *
  * Revision 1.28  2001/11/21 19:38:57  nalin
  * free handlers at clean-up time
  *
@@ -534,11 +538,13 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 		closelog();
 	}
 	pamh->data = stack_this->pamh->data;
+
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "passing former back");
 		closelog();
 	}
+	/* pamh->former = stack_this->pamh->former; FIXME: deep copy? */
 
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);

@@ -18,6 +18,6 @@ $(APPLICATION): $(APPLICATION).c
 	$(CC) $(CFLAGS) $(INCLUDE_PAMMODUTILS) -o $@ $^ $(LINK_PAMMODUTILS)
 
 hmacfile: hmacfile.c hmacsha1.c sha1.c
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -DHMAC_ALLOW_SHORT_KEYS -o $@ $^
 hmactest: hmactest.c
 	$(CC) $(CFLAGS) -o $@ $^ -lcrypto

@@ -1,11 +1,16 @@
-CFLAGS=-Wall
-LIBTOOL=libtool --tag=CC
+#
+# $Id$
+#
+# This Makefile controls a build process of $(TITLE) module for
+# Linux-PAM. You should not modify this Makefile (unless you know
+# what you are doing!).
+#
+# Created by Andrew Morgan <morgan@linux.kernel.org> 2000/08/27
+#
 
-pam_succeed_if.so: pam_succeed_if.lo
-	$(LIBTOOL) --mode=link    $(CC) -shared -o $@ $^ -lpam
+include ../../Make.Rules
 
-pam_succeed_if.lo: pam_succeed_if.c
-	$(LIBTOOL) --mode=compile $(CC) $(CFLAGS) -c -o $@ $^
+TITLE=pam_succeed_if
+MAN8=$(TITLE).8
 
-clean:
-	$(RM) *.o *.lo *.so
+include ../Simple.Rules
