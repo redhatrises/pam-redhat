@@ -1,5 +1,5 @@
 AC_INIT(configure.ac)
-AM_INIT_AUTOMAKE(pam-redhat,0.77.6)
+AM_INIT_AUTOMAKE(pam-redhat,0.77.7)
 AC_PROG_CC
 AM_PROG_LEX
 AC_PROG_YACC
