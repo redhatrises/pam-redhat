@@ -37,28 +37,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Log$
- * Revision 1.31  2004/02/03 23:57:20  nalin
- * - when copying items back and forth, skip the free/strdup if the destination
- *   string already has the same contents as the source string.  despite being not
- *   being disallowed by the spec, this can surprise applications.
- *
- * Revision 1.30  2004/02/03 20:25:27  nalin
- * - if HAVE_LIBLAUS is defined, propagate the laus_state as well
- *
- * Revision 1.29  2003/07/08 03:16:28  nalin
- * - port to 0.77, mainly using the new pammodutil getXXXXX_r wrappers instead of
- *   the macro forms we used for 0.75
- *
- * Revision 1.28  2001/11/21 19:38:57  nalin
- * free handlers at clean-up time
- *
- * Revision 1.27  2001/11/21 19:38:33  nalin
- * free handlers at clean-up time
- *
- * Revision 1.26  2001/11/21 17:54:59  nalin
- * fix some memory leaks (reported by Fernando Trias)
- *
  */
 
 #define PAM_SM_AUTH
@@ -68,9 +46,10 @@
 
 #define PAM_CONST const
 
-#include "../../_pam_aconf.h"
-#include "../../libpam/include/security/_pam_types.h"
-#include "../../libpam/pam_private.h"
+#include "../config.h"
+#include <security/_pam_types.h>
+#include "libpam/pam_private.h"
+#include <security/pam_modules.h>
 #include <sys/syslog.h>
 #include <stdlib.h>
 #include <string.h>
@@ -134,169 +113,173 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 	const char *name = NULL;			/* name of the item */
 	int copied = 0;					/* was it copied */
 	const char *reason = "(no reason)";		/* if not copied, why */
-	switch(item) {
-		case PAM_AUTHTOK:
-			name = "PAM_AUTHTOK";
-			if(source->authtok) {
-				if(dest->authtok &&
-				   (strcmp(source->authtok, dest->authtok) == 0)) {
-					reason = "no change";
-					break;
-				}
-				copied = 1;
-				if(dest->authtok) {
-					_pam_drop(dest->authtok);
-				}
-				dest->authtok = _pam_strdup(source->authtok);
-			} else {
-				reason = "source is NULL";
+	switch (item) {
+	case PAM_AUTHTOK:
+		name = "PAM_AUTHTOK";
+		if (source->authtok) {
+			if (dest->authtok &&
+			    (strcmp(source->authtok, dest->authtok) == 0)) {
+				reason = "no change";
+				break;
 			}
-			break;
-		case PAM_CONV:
-			name = "PAM_CONV";
-			if(source->pam_conversation && !dest->pam_conversation) {
-				copied = 1;
-				dest->pam_conversation = calloc(1, sizeof(struct pam_conv));
-				*dest->pam_conversation = *source->pam_conversation;
-			} else {
-				if(!source->pam_conversation)
-					reason = "source not NULL";
-				if(dest->pam_conversation)
-					reason = "destination already set";
+			copied = 1;
+			if (dest->authtok) {
+				_pam_drop(dest->authtok);
 			}
-			break;
-		case PAM_FAIL_DELAY:
-			name = "PAM_FAIL_DELAY";
-			if(source->fail_delay.set) {
-				copied = 1;
-				dest->fail_delay = source->fail_delay;
-			} else {
-				reason = "source not set";
+			dest->authtok = _pam_strdup(source->authtok);
+		} else {
+			reason = "source is NULL";
+		}
+		break;
+	case PAM_CONV:
+		name = "PAM_CONV";
+		if (source->pam_conversation && !dest->pam_conversation) {
+			copied = 1;
+			dest->pam_conversation = calloc(1, sizeof(struct pam_conv));
+			*dest->pam_conversation = *source->pam_conversation;
+		} else {
+			if (!source->pam_conversation) {
+				reason = "source not NULL";
 			}
-			break;
-		case PAM_OLDAUTHTOK:
-			name = "PAM_OLDAUTHTOK";
-			if(source->oldauthtok) {
-				if(dest->oldauthtok &&
-				   (strcmp(source->oldauthtok, dest->oldauthtok) == 0)) {
-					reason = "no change";
-					break;
-				}
-				copied = 1;
-				if(dest->oldauthtok) {
-					_pam_drop(dest->oldauthtok);
-				}
-				dest->oldauthtok = _pam_strdup(source->oldauthtok);
-			} else {
-				reason = "source is NULL";
+			if (dest->pam_conversation) {
+				reason = "destination already set";
 			}
-			break;
-		case PAM_RHOST:
-			name = "PAM_RHOST";
-			if(source->rhost) {
-				if(dest->rhost &&
-				   (strcmp(source->rhost, dest->rhost) == 0)) {
-					reason = "no change";
-					break;
-				}
-				copied = 1;
-				if(dest->rhost) {
-					_pam_drop(dest->rhost);
-				}
-				dest->rhost = _pam_strdup(source->rhost);
-			} else {
-				reason = "source is NULL";
+		}
+		break;
+	case PAM_FAIL_DELAY:
+		name = "PAM_FAIL_DELAY";
+		if (source->fail_delay.set) {
+			copied = 1;
+			dest->fail_delay = source->fail_delay;
+		} else {
+			reason = "source not set";
+		}
+		break;
+	case PAM_OLDAUTHTOK:
+		name = "PAM_OLDAUTHTOK";
+		if (source->oldauthtok) {
+			if (dest->oldauthtok &&
+			    (strcmp(source->oldauthtok, dest->oldauthtok) == 0)) {
+				reason = "no change";
+				break;
 			}
-			break;
-		case PAM_RUSER:
-			name = "PAM_RUSER";
-			if(source->ruser) {
-				if(dest->ruser &&
-				   (strcmp(source->ruser, dest->ruser) == 0)) {
-					reason = "no change";
-					break;
-				}
-				copied = 1;
-				if(dest->ruser) {
-					_pam_drop(dest->ruser);
-				}
-				dest->ruser = _pam_strdup(source->ruser);
-			} else {
-				reason = "source is NULL";
+			copied = 1;
+			if (dest->oldauthtok) {
+				_pam_drop(dest->oldauthtok);
 			}
-			break;
-		case PAM_SERVICE:
-			name = "PAM_SERVICE";
-			if(source->service_name) {
-				if(dest->service_name &&
-				   (strcmp(source->service_name, dest->service_name) == 0)) {
-					reason = "no change";
-					break;
-				}
-				copied = 1;
-				if(dest->service_name) {
-					_pam_drop(dest->service_name);
-				}
-				dest->service_name = _pam_strdup(source->service_name);
-			} else {
-				reason = "source is NULL";
+			dest->oldauthtok = _pam_strdup(source->oldauthtok);
+		} else {
+			reason = "source is NULL";
+		}
+		break;
+	case PAM_RHOST:
+		name = "PAM_RHOST";
+		if (source->rhost) {
+			if (dest->rhost &&
+			    (strcmp(source->rhost, dest->rhost) == 0)) {
+				reason = "no change";
+				break;
 			}
-			break;
-		case PAM_TTY:
-			name = "PAM_TTY";
-			if(source->tty) {
-				if(dest->tty &&
-				   (strcmp(source->tty, dest->tty) == 0)) {
-					reason = "no change";
-					break;
-				}
-				copied = 1;
-				if(dest->tty) {
-					_pam_drop(dest->tty);
-				}
-				dest->tty = _pam_strdup(source->tty);
-			} else {
-				reason = "source is NULL";
+			copied = 1;
+			if (dest->rhost) {
+				_pam_drop(dest->rhost);
 			}
-			break;
-		case PAM_USER:
-			name = "PAM_USER";
-			if(source->user) {
-				if(dest->user &&
-				   (strcmp(source->user, dest->user) == 0)) {
-					reason = "no change";
-					break;
-				}
-				copied = 1;
-				if(dest->user) {
-					_pam_drop(dest->user);
-				}
-				dest->user = _pam_strdup(source->user);
-			} else {
-				reason = "source is NULL";
+			dest->rhost = _pam_strdup(source->rhost);
+		} else {
+			reason = "source is NULL";
+		}
+		break;
+	case PAM_RUSER:
+		name = "PAM_RUSER";
+		if (source->ruser) {
+			if (dest->ruser &&
+			    (strcmp(source->ruser, dest->ruser) == 0)) {
+				reason = "no change";
+				break;
 			}
-			break;
-		case PAM_USER_PROMPT:
-			name = "PAM_USER_PROMPT";
-			if(source->prompt) {
-				if(dest->prompt &&
-				   (strcmp(source->prompt, dest->prompt) == 0)) {
-					reason = "no change";
-					break;
-				}
-				copied = 1;
-				if(dest->prompt) {
-					_pam_drop(dest->prompt);
-				}
-				dest->prompt = _pam_strdup(source->prompt);
-			} else {
-				reason = "source is NULL";
+			copied = 1;
+			if (dest->ruser) {
+				_pam_drop(dest->ruser);
 			}
-			break;
+			dest->ruser = _pam_strdup(source->ruser);
+		} else {
+			reason = "source is NULL";
+		}
+		break;
+	case PAM_SERVICE:
+		name = "PAM_SERVICE";
+		if (source->service_name) {
+			if (dest->service_name &&
+			    (strcmp(source->service_name, dest->service_name) == 0)) {
+				reason = "no change";
+				break;
+			}
+			copied = 1;
+			if (dest->service_name) {
+				_pam_drop(dest->service_name);
+			}
+			dest->service_name = _pam_strdup(source->service_name);
+		} else {
+			reason = "source is NULL";
+		}
+		break;
+	case PAM_TTY:
+		name = "PAM_TTY";
+		if (source->tty) {
+			if (dest->tty &&
+			    (strcmp(source->tty, dest->tty) == 0)) {
+				reason = "no change";
+				break;
+			}
+			copied = 1;
+			if (dest->tty) {
+				_pam_drop(dest->tty);
+			}
+			dest->tty = _pam_strdup(source->tty);
+		} else {
+			reason = "source is NULL";
+		}
+		break;
+	case PAM_USER:
+		name = "PAM_USER";
+		if (source->user) {
+			if (dest->user &&
+			    (strcmp(source->user, dest->user) == 0)) {
+				reason = "no change";
+				break;
+			}
+			copied = 1;
+			if (dest->user) {
+				_pam_drop(dest->user);
+			}
+			dest->user = _pam_strdup(source->user);
+		} else {
+			reason = "source is NULL";
+		}
+		break;
+	case PAM_USER_PROMPT:
+		name = "PAM_USER_PROMPT";
+		if (source->prompt) {
+			if (dest->prompt &&
+			    (strcmp(source->prompt, dest->prompt) == 0)) {
+				reason = "no change";
+				break;
+			}
+			copied = 1;
+			if (dest->prompt) {
+				_pam_drop(dest->prompt);
+			}
+			dest->prompt = _pam_strdup(source->prompt);
+		} else {
+			reason = "source is NULL";
+		}
+		break;
+	default:
+		break;
 	}
-	if(recipient) {
+	if (recipient) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		if(copied) {
+		if (copied) {
 			syslog(LOG_DEBUG, "passing %s to %s", name, recipient);
 		} else {
 			syslog(LOG_DEBUG, "NOT passing %s to %s: %s", name,
@@ -311,7 +294,7 @@ _pam_stack_cleanup(pam_handle_t *pamh, void *data, int status)
 {
 	struct stack_data *stack_this = (struct stack_data*) data, *next;
 	while(stack_this != NULL) {
-		if(stack_this->debug) {
+		if (stack_this->debug) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "freeing stack data for `%s' service",
 			       stack_this->service);
@@ -350,7 +333,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 
 	/* Save the main service name. */
 	ret = pam_get_item(pamh, PAM_SERVICE, (const void **) &parent_service);
-	if(ret != PAM_SUCCESS) {
+	if (ret != PAM_SUCCESS) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "pam_get_item(PAM_SERVICE) returned %s",
 		       pam_strerror(pamh, ret));
@@ -360,52 +343,52 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 
 	/* Parse arguments. */
 	for(i = 0; i < argc; i++) {
-		if(strncmp("debug", argv[i], 5) == 0) {
+		if (strncmp("debug", argv[i], 5) == 0) {
 			const char *stack_description = NULL;
 			debug = 1;
-			switch(which_stack) {
-				case PAM_AUTHENTICATE:
-					stack_description = "PAM_AUTHENTICATE";
-					break;
-				case PAM_SETCRED:
-					stack_description = "PAM_SETCRED";
-					break;
-				case PAM_OPEN_SESSION:
-					stack_description = "PAM_OPEN_SESSION";
-					break;
-				case PAM_CLOSE_SESSION:
-					stack_description = "PAM_CLOSE_SESSION";
-					break;
-				case PAM_ACCOUNT:
-					stack_description = "PAM_ACCOUNT";
-					break;
-				case PAM_CHAUTHTOK:
-					stack_description = "PAM_CHAUTHTOK";
-					break;
-				default:
-					stack_description = "(unknown)";
+			switch (which_stack) {
+			case PAM_AUTHENTICATE:
+				stack_description = "PAM_AUTHENTICATE";
+				break;
+			case PAM_SETCRED:
+				stack_description = "PAM_SETCRED";
+				break;
+			case PAM_OPEN_SESSION:
+				stack_description = "PAM_OPEN_SESSION";
+				break;
+			case PAM_CLOSE_SESSION:
+				stack_description = "PAM_CLOSE_SESSION";
+				break;
+			case PAM_ACCOUNT:
+				stack_description = "PAM_ACCOUNT";
+				break;
+			case PAM_CHAUTHTOK:
+				stack_description = "PAM_CHAUTHTOK";
+				break;
+			default:
+				stack_description = "(unknown)";
 			}
-			if(stack_description) {
+			if (stack_description) {
 				openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 				syslog(LOG_DEBUG, "called for \"%s\"",
 				       stack_description);
 				closelog();
 			}
 		}
-		if(strncmp("service=", argv[i], 8) == 0) {
+		if (strncmp("service=", argv[i], 8) == 0) {
 			_pam_drop(service);
 			service = _pam_strdup(argv[i] + 8);
 		}
 	}
 
 	/* Sign-on message. */
-	if(debug) {
+	if (debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "called from \"%s\"",
 		       parent_service ? parent_service : "unknown service");
 		closelog();
 	}
-	if(service == NULL) {
+	if (service == NULL) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "required argument \"service\" not given");
 		closelog();
@@ -413,21 +396,21 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 	}
 
 	/* Log that we're initializing. */
-	if(debug) {
+	if (debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "initializing");
 		closelog();
 	}
 
 	/* Retrieve a previously-used stack, if we've been called before. */
-	if(pam_get_data(pamh, STACK_DATA_NAME, (const void**)&stack_data) != PAM_SUCCESS) {
+	if (pam_get_data(pamh, STACK_DATA_NAME, (const void**)&stack_data) != PAM_SUCCESS) {
 		stack_data = NULL;
 	}
 
 	/* Search for the record for this stack. */
 	stack_this = stack_data;
 	while(stack_this != NULL) {
-		if(strcmp(service, stack_this->service) == 0) {
+		if (strcmp(service, stack_this->service) == 0) {
 			break;
 		}
 		stack_this = stack_this->next;
@@ -435,15 +418,15 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 
 	/* If we didn't find one, create one and put it at the front of the
 	 * list of substacks we have contexts for. */
-	if(stack_this == NULL) {
-		if(debug) {
+	if (stack_this == NULL) {
+		if (debug) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "creating child stack `%s'", service);
 			closelog();
 		}
 
 		stack_this = malloc(sizeof(struct stack_data));
-		if(stack_this == NULL) {
+		if (stack_this == NULL) {
 			return PAM_BUF_ERR;
 		}
 
@@ -452,13 +435,13 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 		stack_this->pamh = calloc(1, sizeof(pam_handle_t));
 
 		/* Create an environment for the child. */
-		if(debug) {
+		if (debug) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "creating environment");
 			closelog();
 		}
 		ret = _pam_make_env(stack_this->pamh);
-		if(ret != PAM_SUCCESS) {
+		if (ret != PAM_SUCCESS) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_ERR, "_pam_make_env() returned %s",
 			       pam_strerror(stack_this->pamh, ret));
@@ -468,7 +451,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 
 		/* Set the service.  This loads the service modules. */
 		ret = pam_set_item(stack_this->pamh, PAM_SERVICE, service);
-		if(ret != PAM_SUCCESS) {
+		if (ret != PAM_SUCCESS) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_ERR, "pam_set_item(PAM_SERVICE) returned %d (%s)",
 			       ret, pam_strerror(stack_this->pamh, ret));
@@ -479,7 +462,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 		/* Initialize the handlers for the substack. */
 		_pam_start_handlers(stack_this->pamh);
 		ret = _pam_init_handlers(stack_this->pamh);
-		if(ret != PAM_SUCCESS) {
+		if (ret != PAM_SUCCESS) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_ERR, "_pam_init_handlers() returned %d (%s)",
 			       ret, pam_strerror(stack_this->pamh, ret));
@@ -489,7 +472,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 
 		/* Insert the data item at the end of the stack list, or make
 		 * it the head if we don't have one yet. */
-		if(stack_data == NULL) {
+		if (stack_data == NULL) {
 			pam_set_data(pamh, STACK_DATA_NAME, stack_this,
 				     _pam_stack_cleanup);
 		} else {
@@ -500,7 +483,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 		}
 
 	} else {
-		if(debug) {
+		if (debug) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "found previously-used child stack "
 			       "`%s'", service);
@@ -512,7 +495,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 	/* Copy the environment from the upper stack to the lower stack. */
 	env = pam_getenvlist(pamh); 
 	for(i = 0; (env != NULL) && (env[i] != NULL); i++) {
-		if(debug) {
+		if (debug) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "setting environment \"%s\" in child",
 			       env[i]);
@@ -534,24 +517,24 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 	_pam_stack_copy(pamh, stack_this->pamh, PAM_USER_PROMPT, debug ? "child" : NULL);
 
 	/* Pass the generic data pointer, too. */
-	if(debug) {
+	if (debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "passing data to child");
 		closelog();
 	}
 	stack_this->pamh->data = pamh->data;
-#if HAVE_LIBLAUS
+#if HAVE_LAUS
 	stack_this->laus_state = pamh->laus_state;
 #endif
 
 	/* Now call the substack. */
-	if(debug) {
+	if (debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "calling substack");
 		closelog();
 	}
 	final_ret = _pam_dispatch(stack_this->pamh, flags, which_stack);
-	if(debug) {
+	if (debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "substack returned %d (%s)", final_ret,
 		       pam_strerror(stack_this->pamh, final_ret));
@@ -561,7 +544,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 	/* Copy the useful data back up to the main stack, environment first. */
 	env = pam_getenvlist(stack_this->pamh); 
 	for(i = 0; (env != NULL) && (env[i] != NULL); i++) {
-		if(debug) {
+		if (debug) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "setting environment \"%s\" in "
 			       "parent", env[i]);
@@ -583,24 +566,24 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 	_pam_stack_copy(stack_this->pamh, pamh, PAM_USER_PROMPT, debug ? "parent" : NULL);
 
 	/* Wow, passing the extra data back is hard. */
-	if(debug) {
+	if (debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "passing data back");
 		closelog();
 	}
-#if HAVE_LIBLAUS
+#if HAVE_LAUS
 	pamh->laus_state = stack_this->laus_state;
 #endif
 	pamh->data = stack_this->pamh->data;
 
-	if(debug) {
+	if (debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "passing former back");
 		closelog();
 	}
 	/* pamh->former = stack_this->pamh->former; FIXME: deep copy? */
 
-	if(debug) {
+	if (debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "returning %d (%s)", final_ret,
 		       pam_strerror(stack_this->pamh, final_ret));
