@@ -26,15 +26,17 @@ should match the directory configured for sudo(1) in the sudoers(5) file.
 tells pam_timestamp.so how long it should treat timestamp files as valid
 after their last modification date.  This should match the value configured
 for sudo(1) in the sudoers(5) file.
+.IP verbose
+attempt to inform the user when access is granted.
 
 .SH EXAMPLE
 \fB/etc/pam.d/some-config-tool\fP:
 .br
-auth sufficient /lib/security/pam_timestamp.so
+auth sufficient /lib/security/pam_timestamp.so verbose
 auth required   /lib/security/pam_unix.so
 .br
-session optional /lib/security/pam_timestamp.so
 session required /lib/security/pam_permit.so
+session optional /lib/security/pam_timestamp.so
 .br
 
 .SH CAVEATS

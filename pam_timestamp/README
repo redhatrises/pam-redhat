@@ -24,6 +24,7 @@ The module takes these arguments:
 				creation during which a timestamp is file is
 				considered to be valid.  The default setting,
 				which mirrors sudo's, is 600 (five minutes).
+	verbose			Attempt to tell the user when access is granted.
 
 Nalin Dahyabhai <nalin@redhat.com>
 

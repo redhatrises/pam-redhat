@@ -65,8 +65,8 @@
 #define TIMESTAMPDIR "/var/run/sudo"
 
 static int
-get_cache_name(pam_handle_t *pamh, int argc, const char **argv,
-	       char *path, size_t len)
+get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
+		   char *path, size_t len)
 {
 	const char *user, *ruser, *tty;
 	const char *tdir = TIMESTAMPDIR;
@@ -148,10 +148,11 @@ get_cache_name(pam_handle_t *pamh, int argc, const char **argv,
 	if (strlen(tty) == 0) {
 		return PAM_AUTH_ERR;
 	}
-	/* Generate the name of the file used to cache auth results. */
+	/* Generate the name of the file used to cache auth results.  These
+	 * paths should jive with sudo's per-tty naming scheme. */
 	if (strcmp(ruser, user) == 0) {
 		if (snprintf(path, len, "%s/%s/%s",
-			     tdir, user, tty) > len - 1) {
+			     tdir, ruser, tty) > len - 1) {
 			return PAM_AUTH_ERR;
 		}
 	} else {
@@ -166,12 +167,38 @@ get_cache_name(pam_handle_t *pamh, int argc, const char **argv,
 	return PAM_SUCCESS;
 }
 
+static void
+verbose_success(pam_handle_t *pamh, int debug, int diff)
+{
+	struct pam_conv *conv;
+	char text[LINE_MAX];
+	struct pam_message message;
+	const struct pam_message *messages[] = {&message};
+	struct pam_response *responses;
+	if (pam_get_item(pamh, PAM_CONV, (const void**) &conv) == PAM_SUCCESS) {
+		if (conv->conv != NULL) {
+			memset(&message, 0, sizeof(message));
+			message.msg_style = PAM_TEXT_INFO;
+			snprintf(text, sizeof(text),
+				 "Access granted (last access was %d "
+				 "seconds ago).", diff);
+			message.msg = text;
+			syslog(LOG_DEBUG, MODULE ": %s", message.msg);
+			conv->conv(1, messages, &responses, conv->appdata_ptr);
+		} else {
+			syslog(LOG_DEBUG, MODULE ": bogus conversation function");
+		}
+	} else {
+		syslog(LOG_DEBUG, MODULE ": no conversation function");
+	}
+}
+
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	struct stat st;
 	time_t interval = DEFAULT_TIMESTAMP_TIMEOUT;
-	int i, debug = 0;
+	int i, debug = 0, verbose = 0;
 	char path[PATH_MAX];
 	const char *service = "(unknown)";
 	time_t now;
@@ -189,11 +216,18 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 				       MODULE ": setting timeout to %ld seconds",
 				       (long)interval);
 			}
+		} else
+		if (strcmp(argv[i], "verbose") == 0) {
+			verbose = 1;
+			if (debug) {
+				syslog(LOG_DEBUG,
+				       MODULE ": becoming more verbose");
+			}
 		}
 	}
-	/* Get the name of the cache. */
-	if (get_cache_name(pamh, argc, argv,
-			   path, sizeof(path)) != PAM_SUCCESS) {
+	/* Get the name of the timestamp file. */
+	if (get_timestamp_name(pamh, argc, argv,
+			       path, sizeof(path)) != PAM_SUCCESS) {
 		return PAM_AUTH_ERR;
 	}
 	/* Get the name of the service. */
@@ -218,6 +252,9 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			       "only %ld seconds old, allowing access to %s "
 			       "for UID %ld", path, now - st.st_mtime,
 			       service, (long)getuid());
+			if (verbose) {
+				verbose_success(pamh, debug, now - st.st_mtime);
+			}
 			return PAM_SUCCESS;
 		} else {
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
@@ -248,12 +285,12 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			debug = 1;
 		}
 	}
-	/* Get the name of the cache. */
-	if (get_cache_name(pamh, argc, argv,
-			   path, sizeof(path)) != PAM_SUCCESS) {
+	/* Get the name of the timestamp file. */
+	if (get_timestamp_name(pamh, argc, argv,
+			       path, sizeof(path)) != PAM_SUCCESS) {
 		return PAM_SESSION_ERR;
 	}
-	/* Create a cache file if it doesn't already exist. */
+	/* Create a timestamp file if it doesn't already exist. */
 	for (i = 1; path[i] != '\0'; i++) {
 		if (path[i] == '/') {
 			/* Check for the existence of a directory. */
@@ -263,9 +300,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 				if (mkdir(subdir, 0700) != 0) {
 					if (debug) {
 						syslog(LOG_DEBUG,
-						       MODULE ": created "
-						       "directory `%s'",
-						       subdir);
+						       MODULE ": error creating"
+						       " directory `%s': %s",
+						       subdir, strerror(errno));
 					}
 					return PAM_SESSION_ERR;
 				}
@@ -291,6 +328,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 	/* Close the file and return successfully. */
 	close(fd);
+	syslog(LOG_DEBUG, MODULE ": updated timestamp file `%s'", path);
 	return PAM_SUCCESS;
 }
 
