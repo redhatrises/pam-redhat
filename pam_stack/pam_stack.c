@@ -35,6 +35,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define STACK_DATA_NAME "pam_stack_saved_stacks"
+struct stack_data {
+	char *service;
+	int debug;
+	pam_handle_t *pamh;
+	struct stack_data *next;
+};
+
 static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			       int argc, const char **argv,
 			       int which_stack);
@@ -194,14 +202,39 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 	}
 }
 
-static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
-			       int argc, const char **argv,
-			       int which_stack)
+static void
+_pam_stack_cleanup(pam_handle_t *pamh, void *data, int status)
+{
+	struct stack_data *stack_this = (struct stack_data*) data, *next = NULL;
+	while(stack_this != NULL) {
+		if(stack_this->debug) {
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_DEBUG, "freeing stack data for `%s' service",
+			       stack_this->service);
+			closelog();
+		}
+		next = stack_this->next;
+		/* Clean up and bug out.  Don't free the ITEMs because they're
+		 * shared by the parent's pamh.  Because of how setting items
+		 * works, we don't actually leak memory doing this (!). */
+		stack_this->pamh->data = NULL;
+		_pam_drop(stack_this->pamh->service_name);
+		_pam_drop_env(stack_this->pamh);
+		_pam_drop(stack_this->pamh);
+		free(stack_this->service);
+		free(stack_this);
+		stack_this = next;
+	}
+}
+
+static int
+_pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
+		    int which_stack)
 {
 	char **env = NULL, *service = NULL;
 	const char *parent_service = NULL;
-	pam_handle_t *sub_pamh = NULL;
 	int debug = 0, i = 0, ret = PAM_SUCCESS, final_ret = PAM_SUCCESS;
+	struct stack_data *stack_data = NULL, *stack_this;
 
 	/* Save the main service name. */
 	ret = pam_get_item(pamh, PAM_SERVICE, (const void **) &parent_service);
@@ -267,49 +300,92 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		return PAM_SYSTEM_ERR;
 	}
 
-	/* Create and initialize a pam_handle_t structure for our substack. */
+	/* Log that we're initializing. */
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "initializing");
 		closelog();
 	}
-	sub_pamh = calloc(1, sizeof(pam_handle_t));
 
-	/* Create an environment for the child. */
-	if(debug) {
-		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_DEBUG, "creating environment");
-		closelog();
-	}
-	ret = _pam_make_env(sub_pamh);
-	if(ret != PAM_SUCCESS) {
-		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_ERR, "_pam_make_env() returned %s",
-		       pam_strerror(pamh, ret));
-		closelog();
-		return PAM_SYSTEM_ERR;
+	/* Retrieve a previously-used stack, if we've been called before. */
+	if(pam_get_data(pamh, STACK_DATA_NAME, &stack_data) != PAM_SUCCESS) {
+		stack_data = NULL;
 	}
 
-	/* Set the service.  This loads the service modules. */
-	ret = pam_set_item(sub_pamh, PAM_SERVICE, service);
-	if(ret != PAM_SUCCESS) {
-		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_ERR, "pam_set_item(PAM_SERVICE) returned %d (%s)",
-		       ret, pam_strerror(sub_pamh, ret));
-		closelog();
-		return PAM_SYSTEM_ERR;
+	/* Search for the record for this stack. */
+	stack_this = stack_data;
+	while(stack_this != NULL) {
+		if(strcmp(service, stack_this->service) == 0) {
+			break;
+		}
+		stack_this = stack_this->next;
 	}
 
-	/* Initialize the handlers for the substack. */
-	_pam_start_handlers(sub_pamh);
-	ret = _pam_init_handlers(sub_pamh);
-	if(ret != PAM_SUCCESS) {
-		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_ERR, "_pam_init_handlers() returned %d (%s)",
-		       ret, pam_strerror(sub_pamh, ret));
-		closelog();
-		return PAM_SYSTEM_ERR;
+	/* If we didn't find one, create one and put it at the front of the
+	 * list of substacks we have contexts for. */
+	if(stack_this == NULL) {
+		if(debug) {
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_DEBUG, "creating child stack `%s'", service);
+			closelog();
+		}
+
+		stack_this = malloc(sizeof(struct stack_data));
+		if(stack_this == NULL) {
+			return PAM_BUF_ERR;
+		}
+
+		memset(stack_this, 0, sizeof(struct stack_data));
+		stack_this->next = stack_data;
+		pam_set_data(pamh, STACK_DATA_NAME, stack_this, _pam_stack_cleanup);
+
+		stack_this->service = strdup(service);
+		stack_this->pamh = calloc(1, sizeof(pam_handle_t));
+
+		/* Create an environment for the child. */
+		if(debug) {
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_DEBUG, "creating environment");
+			closelog();
+		}
+		ret = _pam_make_env(stack_this->pamh);
+		if(ret != PAM_SUCCESS) {
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_ERR, "_pam_make_env() returned %s",
+			       pam_strerror(stack_this->pamh, ret));
+			closelog();
+			return PAM_SYSTEM_ERR;
+		}
+
+		/* Set the service.  This loads the service modules. */
+		ret = pam_set_item(stack_this->pamh, PAM_SERVICE, service);
+		if(ret != PAM_SUCCESS) {
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_ERR, "pam_set_item(PAM_SERVICE) returned %d (%s)",
+			       ret, pam_strerror(stack_this->pamh, ret));
+			closelog();
+			return PAM_SYSTEM_ERR;
+		}
+
+		/* Initialize the handlers for the substack. */
+		_pam_start_handlers(stack_this->pamh);
+		ret = _pam_init_handlers(stack_this->pamh);
+		if(ret != PAM_SUCCESS) {
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_ERR, "_pam_init_handlers() returned %d (%s)",
+			       ret, pam_strerror(stack_this->pamh, ret));
+			closelog();
+			return PAM_SYSTEM_ERR;
+		}
+	} else {
+		if(debug) {
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_DEBUG, "found previously-used child stack "
+			       "`%s'", service);
+			closelog();
+		}
 	}
+	stack_this->debug = debug;
 
 	/* Copy the environment from the upper stack to the lower stack. */
 	env = pam_getenvlist(pamh); 
@@ -320,20 +396,20 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			       env[i]);
 			closelog();
 		}
-		pam_putenv(sub_pamh, env[i]);
+		pam_putenv(stack_this->pamh, env[i]);
 	}
 
 	/* Copy named PAM items to the child. */
-	_pam_stack_copy(pamh, sub_pamh, PAM_AUTHTOK, debug ? "child" : NULL);
-	_pam_stack_copy(pamh, sub_pamh, PAM_CONV, debug ? "child" : NULL);
-	_pam_stack_copy(pamh, sub_pamh, PAM_FAIL_DELAY, debug ? "child" : NULL);
-	_pam_stack_copy(pamh, sub_pamh, PAM_OLDAUTHTOK, debug ? "child" : NULL);
-	_pam_stack_copy(pamh, sub_pamh, PAM_RHOST, debug ? "child" : NULL);
-	_pam_stack_copy(pamh, sub_pamh, PAM_RUSER, debug ? "child" : NULL);
-	_pam_stack_copy(pamh, sub_pamh, PAM_SERVICE, debug ? "child" : NULL);
-	_pam_stack_copy(pamh, sub_pamh, PAM_TTY, debug ? "child" : NULL);
-	_pam_stack_copy(pamh, sub_pamh, PAM_USER, debug ? "child" : NULL);
-	_pam_stack_copy(pamh, sub_pamh, PAM_USER_PROMPT, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, stack_this->pamh, PAM_AUTHTOK, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, stack_this->pamh, PAM_CONV, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, stack_this->pamh, PAM_FAIL_DELAY, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, stack_this->pamh, PAM_OLDAUTHTOK, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, stack_this->pamh, PAM_RHOST, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, stack_this->pamh, PAM_RUSER, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, stack_this->pamh, PAM_SERVICE, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, stack_this->pamh, PAM_TTY, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, stack_this->pamh, PAM_USER, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, stack_this->pamh, PAM_USER_PROMPT, debug ? "child" : NULL);
 
 	/* Pass the generic data pointer, too. */
 	if(debug) {
@@ -341,13 +417,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		syslog(LOG_DEBUG, "passing data to child");
 		closelog();
 	}
-	sub_pamh->data = pamh->data;
-	if(debug) {
-		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_DEBUG, "passing former to child");
-		closelog();
-	}
-	sub_pamh->former = pamh->former;
+	stack_this->pamh->data = pamh->data;
 
 	/* Now call the substack. */
 	if(debug) {
@@ -355,10 +425,10 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		syslog(LOG_DEBUG, "calling substack");
 		closelog();
 	}
-	final_ret = _pam_dispatch(sub_pamh, flags, which_stack);
+	final_ret = _pam_dispatch(stack_this->pamh, flags, which_stack);
 
 	/* Copy the useful data back up to the main stack, environment first. */
-	env = pam_getenvlist(sub_pamh); 
+	env = pam_getenvlist(stack_this->pamh); 
 	for(i = 0; (env != NULL) && (env[i] != NULL); i++) {
 		if(debug) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
@@ -370,16 +440,16 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	}
 
 	/* Now the named data items. */
-	_pam_stack_copy(sub_pamh, pamh, PAM_AUTHTOK, debug ? "parent" : NULL);
-	_pam_stack_copy(sub_pamh, pamh, PAM_CONV, debug ? "parent" : NULL);
-	_pam_stack_copy(sub_pamh, pamh, PAM_FAIL_DELAY, debug ? "parent" : NULL);
-	_pam_stack_copy(sub_pamh, pamh, PAM_OLDAUTHTOK, debug ? "parent" : NULL);
-	_pam_stack_copy(sub_pamh, pamh, PAM_RHOST, debug ? "parent" : NULL);
-	_pam_stack_copy(sub_pamh, pamh, PAM_RUSER, debug ? "parent" : NULL);
-	_pam_stack_copy(sub_pamh, pamh, PAM_SERVICE, debug ? "parent" : NULL);
-	_pam_stack_copy(sub_pamh, pamh, PAM_TTY, debug ? "parent" : NULL);
-	_pam_stack_copy(sub_pamh, pamh, PAM_USER, debug ? "parent" : NULL);
-	_pam_stack_copy(sub_pamh, pamh, PAM_USER_PROMPT, debug ? "parent" : NULL);
+	_pam_stack_copy(stack_this->pamh, pamh, PAM_AUTHTOK, debug ? "parent" : NULL);
+	_pam_stack_copy(stack_this->pamh, pamh, PAM_CONV, debug ? "parent" : NULL);
+	_pam_stack_copy(stack_this->pamh, pamh, PAM_FAIL_DELAY, debug ? "parent" : NULL);
+	_pam_stack_copy(stack_this->pamh, pamh, PAM_OLDAUTHTOK, debug ? "parent" : NULL);
+	_pam_stack_copy(stack_this->pamh, pamh, PAM_RHOST, debug ? "parent" : NULL);
+	_pam_stack_copy(stack_this->pamh, pamh, PAM_RUSER, debug ? "parent" : NULL);
+	_pam_stack_copy(stack_this->pamh, pamh, PAM_SERVICE, debug ? "parent" : NULL);
+	_pam_stack_copy(stack_this->pamh, pamh, PAM_TTY, debug ? "parent" : NULL);
+	_pam_stack_copy(stack_this->pamh, pamh, PAM_USER, debug ? "parent" : NULL);
+	_pam_stack_copy(stack_this->pamh, pamh, PAM_USER_PROMPT, debug ? "parent" : NULL);
 
 	/* Wow, passing the extra data back is hard. */
 	if(debug) {
@@ -387,37 +457,25 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		syslog(LOG_DEBUG, "passing data back");
 		closelog();
 	}
-	pamh->data = sub_pamh->data;
+	pamh->data = stack_this->pamh->data;
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "passing former back");
 		closelog();
 	}
-	pamh->former = sub_pamh->former;
-
-	/* Clean up and bug out.  Don't free the ITEMs because they're shared
-	   by the parent's pamh.  Because of how setting items works, we don't
-	   actually leak memory doing this (!). */
-	sub_pamh->data = NULL;
-	_pam_drop(sub_pamh->service_name);
-	_pam_drop_env(sub_pamh);
-	_pam_drop(service);
 
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "returning %d (%s)", final_ret,
-		       pam_strerror(sub_pamh, final_ret));
+		       pam_strerror(stack_this->pamh, final_ret));
 		closelog();
 	}
-	free(sub_pamh);
 
 	return final_ret;
 }
 
 #ifdef PAM_STATIC
-
 /* static module data */
-
 struct pam_module _pam_stack_modstruct = {
 	"pam_stack",
 	pam_sm_authenticate,
