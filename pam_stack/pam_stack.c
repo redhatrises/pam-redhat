@@ -38,6 +38,11 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * $Log$
+ * Revision 1.31  2004/02/03 23:57:20  nalin
+ * - when copying items back and forth, skip the free/strdup if the destination
+ *   string already has the same contents as the source string.  despite being not
+ *   being disallowed by the spec, this can surprise applications.
+ *
  * Revision 1.30  2004/02/03 20:25:27  nalin
  * - if HAVE_LIBLAUS is defined, propagate the laus_state as well
  *
@@ -133,6 +138,11 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 		case PAM_AUTHTOK:
 			name = "PAM_AUTHTOK";
 			if(source->authtok) {
+				if(dest->authtok &&
+				   (strcmp(source->authtok, dest->authtok) == 0)) {
+					reason = "no change";
+					break;
+				}
 				copied = 1;
 				if(dest->authtok) {
 					_pam_drop(dest->authtok);
@@ -167,6 +177,11 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 		case PAM_OLDAUTHTOK:
 			name = "PAM_OLDAUTHTOK";
 			if(source->oldauthtok) {
+				if(dest->oldauthtok &&
+				   (strcmp(source->oldauthtok, dest->oldauthtok) == 0)) {
+					reason = "no change";
+					break;
+				}
 				copied = 1;
 				if(dest->oldauthtok) {
 					_pam_drop(dest->oldauthtok);
@@ -179,6 +194,11 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 		case PAM_RHOST:
 			name = "PAM_RHOST";
 			if(source->rhost) {
+				if(dest->rhost &&
+				   (strcmp(source->rhost, dest->rhost) == 0)) {
+					reason = "no change";
+					break;
+				}
 				copied = 1;
 				if(dest->rhost) {
 					_pam_drop(dest->rhost);
@@ -191,6 +211,11 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 		case PAM_RUSER:
 			name = "PAM_RUSER";
 			if(source->ruser) {
+				if(dest->ruser &&
+				   (strcmp(source->ruser, dest->ruser) == 0)) {
+					reason = "no change";
+					break;
+				}
 				copied = 1;
 				if(dest->ruser) {
 					_pam_drop(dest->ruser);
@@ -203,6 +228,11 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 		case PAM_SERVICE:
 			name = "PAM_SERVICE";
 			if(source->service_name) {
+				if(dest->service_name &&
+				   (strcmp(source->service_name, dest->service_name) == 0)) {
+					reason = "no change";
+					break;
+				}
 				copied = 1;
 				if(dest->service_name) {
 					_pam_drop(dest->service_name);
@@ -215,6 +245,11 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 		case PAM_TTY:
 			name = "PAM_TTY";
 			if(source->tty) {
+				if(dest->tty &&
+				   (strcmp(source->tty, dest->tty) == 0)) {
+					reason = "no change";
+					break;
+				}
 				copied = 1;
 				if(dest->tty) {
 					_pam_drop(dest->tty);
@@ -227,6 +262,11 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 		case PAM_USER:
 			name = "PAM_USER";
 			if(source->user) {
+				if(dest->user &&
+				   (strcmp(source->user, dest->user) == 0)) {
+					reason = "no change";
+					break;
+				}
 				copied = 1;
 				if(dest->user) {
 					_pam_drop(dest->user);
@@ -239,6 +279,11 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 		case PAM_USER_PROMPT:
 			name = "PAM_USER_PROMPT";
 			if(source->prompt) {
+				if(dest->prompt &&
+				   (strcmp(source->prompt, dest->prompt) == 0)) {
+					reason = "no change";
+					break;
+				}
 				copied = 1;
 				if(dest->prompt) {
 					_pam_drop(dest->prompt);
