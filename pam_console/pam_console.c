@@ -328,7 +328,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     D(("called."));
     _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, TRUE, "pam_console open_session");
     _args_parse(argc, argv);
-    pam_get_user(pamh, &username, "login: ");
+    pam_get_item(pamh, PAM_USER, &username);
     _pam_log(LOG_PID|LOG_AUTHPRIV, TRUE, "user is \"%s\"",
 	     username ? username : "(null)");
     if (!username || !username[0]) {
@@ -395,7 +395,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
     D(("called."));
     _args_parse(argc, argv);
-    pam_get_user(pamh, &username, "login: ");
+    pam_get_item(pamh, PAM_USER, &username);
     if (!username || !username[0]) return PAM_SESSION_ERR;
     if (is_root(username)) return PAM_SUCCESS;
     pam_get_item(pamh, PAM_TTY, CAST_ME_HARDER &tty);
