@@ -1,6 +1,6 @@
 /*
  *
- * /var/run/console.lock is the file used to control access to
+ * /var/run/console/console.lock is the file used to control access to
  * devices.  It is created when the first console user logs in,
  * and that user has the control of the console until they have
  * logged out of all concurrent login sessions.  That is,
@@ -19,7 +19,7 @@
  * and to make console authentication easy -- if it exists, then
  * <username> has console access.
  *
- * A system startup script should remove /var/run/console.lock
+ * A system startup script should remove /var/run/console/console.lock
  * and everything in /var/run/console/
  */
 
@@ -49,7 +49,7 @@
  */
 #define CAST_ME_HARDER (const void**)
 
-static char consolelock[PATH_MAX] = LOCKDIR ".lock";
+static char consolelock[PATH_MAX] = LOCKDIR "/console.lock";
 static char consolerefs[PATH_MAX] = LOCKDIR "/";
 static char consoleapps[PATH_MAX] = "/etc/security/console.apps/";
 static char consoleperms[PATH_MAX] = "/etc/security/console.perms";
@@ -326,12 +326,12 @@ pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
 PAM_EXTERN int
 pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
-  /* Create /var/run/console.lock if it does not exist
+  /* Create /var/run/console/console.lock if it does not exist
    * Create /var/run/console/<username> if it does not exist
    * Increment its use count
    * Change file ownerships and permissions as given in
    * /etc/security/console.perms IFF returned use count was 0
-   * and we created /var/run/console.lock
+   * and we created /var/run/console/console.lock
    */
     int got_console = 0;
     int count = 0;
@@ -399,11 +399,11 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   /* Get /var/run/console/<username> use count, leave it locked
    * If use count is now 1:
-   *   If /var/run/console.lock contains <username>"
+   *   If /var/run/console/console.lock contains <username>"
    *     Revert file ownerships and permissions as given in
    *     /etc/security/console.perms
    * Decrement /var/run/console/<username>, removing both it and
-   *   /var/run/console.lock if 0, unlocking /var/run/console/<username>
+   *   /var/run/console/console.lock if 0, unlocking /var/run/console/<username>
    *   in any case.
    */
     int fd;
