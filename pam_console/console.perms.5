@@ -30,7 +30,10 @@ Any line can be broken and continued on the next line by using a
 The \fBlogin-class\fP class and the \fBlogin-regexp\fP word are evaluated as
 regular expressions.
 The \fBdev-class\fP and the \fBdev-glob\fP word are evaluated as
-shell-style globs.
+shell-style globs.  If a name given corresponds to a directory, and
+if it is a mount point listed in \fI/etc/fstab\fP, the device node
+associated with the filesystem mounted at that point will be
+substituted in its place.
 
 Classes are denoted by being contained in \f(CR<\fR angle bracket \f(CR>\fR
 characters; a lack of \f(CR<\fR angle brackets \f(CR>\fR indicates that

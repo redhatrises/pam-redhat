@@ -8,7 +8,6 @@
 #define STATIC
 #endif
 
-STATIC int chmod_filelist (char *mode, uid_t user, gid_t group, GSList *filelist);
-STATIC int chmod_file (char *mode, uid_t user, gid_t group, char *filename);
+STATIC int chmod_files (const char *mode, uid_t user, gid_t group, char *filename, GSList *filelist);
 
 #endif /* _CHMOD_H */

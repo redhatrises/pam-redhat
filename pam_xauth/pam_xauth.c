@@ -284,9 +284,11 @@ call_xauth(char **data, user_context c, direction d, char *path, ...)
 	va_start(ap, path); /* no va_end because we exec instead... */
 
 	setuid(0);
-	setuid(user[c]);
-	_pam_log(LOG_DEBUG, "call_xauth: setuid to %d for %s with %s %s",
-		 user[c], path, d==Incoming ? "incoming" : "outgoing", display);
+	setreuid(user[c], user[c]);
+	_pam_log(LOG_DEBUG, "call_xauth: setuid to %d for %s with %s %s with "
+		 "%s = \"%s\"", user[c], path,
+		 d==Incoming ? "incoming" : "outgoing", display,
+		 "XAUTHORITY", xauthority ? xauthority : "(null)");
 
 	/* modify the environment appropriately -- no need to sanitize
 	 * because we are working only within an authenticated user
@@ -321,6 +323,11 @@ call_xauth(char **data, user_context c, direction d, char *path, ...)
 	_exit(1);
     }
 
+    /* catch any fork() errors */
+    if (child == -1) {
+	_pam_log(LOG_ERR, "call_xauth: fork error"); return;
+    }
+
     /* read/write output/input */
     if (d == Incoming) {
 	int datasize = 256; /* enough for normal cookies */
@@ -334,7 +341,7 @@ call_xauth(char **data, user_context c, direction d, char *path, ...)
 	}
 	*data[0] = '\0';
 	charsread = sofar = read(tube[0], *data, datasize);
-	while (charsread) {
+	while (charsread > 0) {
 	    if (sofar >= datasize-1) {
 		datasize += 256;
 		*data = realloc(*data, datasize);
@@ -344,7 +351,7 @@ call_xauth(char **data, user_context c, direction d, char *path, ...)
 		}
 	    }
 	    charsread = read(tube[0], *data+sofar, datasize-sofar);
-	    if(charsread >= 0) {
+	    if(charsread > 0) {
 		sofar += charsread;
 	    }
 	}

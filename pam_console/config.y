@@ -281,9 +281,9 @@ set_permissions(const char *consolename, const char *username, int nonroot_ok) {
 	c = cl->data;
 	if (g_hash_table_lookup(consoleHash, c->console_class)) {
 	    if (c->device_class->list)
-		chmod_filelist(c->mode, p->pw_uid, -1, c->device_class->list);
+		chmod_files(c->mode, p->pw_uid, -1, NULL, c->device_class->list);
 	    else
-		chmod_file(c->mode, p->pw_uid, -1, c->device_class->name);
+		chmod_files(c->mode, p->pw_uid, -1, c->device_class->name, NULL);
 	}
     }
     return 0;
@@ -316,11 +316,11 @@ reset_permissions(const char *consolename, int nonroot_ok) {
                 return -1;
             }
 	    if (c->device_class->list)
-		chmod_filelist(c->revert_mode ? c->revert_mode : "0600",
-			       p->pw_uid, g->gr_gid, c->device_class->list);
+		chmod_files(c->revert_mode ? c->revert_mode : "0600",
+			    p->pw_uid, g->gr_gid, NULL, c->device_class->list);
 	    else
-		chmod_file(c->revert_mode ? c->revert_mode : "0600",
-			   p->pw_uid, g->gr_gid, c->device_class->name);
+		chmod_files(c->revert_mode ? c->revert_mode : "0600",
+			    p->pw_uid, g->gr_gid, c->device_class->name, NULL);
 	}
     }
     return 0;
