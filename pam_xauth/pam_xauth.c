@@ -33,6 +33,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "../../_pam_aconf.h"
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
