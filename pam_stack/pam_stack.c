@@ -77,8 +77,8 @@ pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 /* Current libpam now distinguishes between modules and applications, so the
    neat behavior we depended on is gone.  So we have to this the messy way.
-   What's amazing is that this simplifies things due to the lack of a need to
-   check for error return codes. */
+   What's surprising is that this simplifies things due to the lack of a need
+   to check for error return codes. */
 static void
 _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 		const char *recipient)
