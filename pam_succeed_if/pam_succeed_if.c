@@ -37,6 +37,10 @@
  *
  */
 
+#ident "$Id$"
+
+#include "../config.h"
+#include "../lib/libmisc.h"
 #include <sys/types.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -51,7 +55,6 @@
 #include <pwd.h>
 #include <grp.h>
 #include <security/pam_modules.h>
-#include <security/_pam_modutil.h>
 
 #define MODULE "pam_succeed_if"
 
@@ -198,7 +201,7 @@ static int
 evaluate_ingroup(pam_handle_t *pamh, const char *user, const char *group)
 {
 	int ret;
-	ret = _pammodutil_user_in_group_nam_nam(pamh, user, group);
+	ret = libmisc_user_in_group_nam_nam(pamh, user, group);
 	switch (ret) {
 	case 1:
 		return PAM_SUCCESS;
@@ -213,7 +216,7 @@ static int
 evaluate_notingroup(pam_handle_t *pamh, const char *user, const char *group)
 {
 	int ret;
-	ret = _pammodutil_user_in_group_nam_nam(pamh, user, group);
+	ret = libmisc_user_in_group_nam_nam(pamh, user, group);
 	switch (ret) {
 	case 0:
 		return PAM_SUCCESS;
@@ -361,7 +364,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	if (use_uid) {
 		/* Get information about the user. */
-		pwd = _pammodutil_getpwuid(pamh, getuid());
+		pwd = libmisc_getpwuid(pamh, getuid());
 		if (pwd == NULL) {
 			log_error(LOG_CRIT,
 				  "error retrieving information about user %ld",
@@ -378,7 +381,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		}
 
 		/* Get information about the user. */
-		pwd = _pammodutil_getpwnam(pamh, user);
+		pwd = libmisc_getpwnam(pamh, user);
 		if (pwd == NULL) {
 			log_error(LOG_CRIT,
 				  "error retrieving information about user %s",
@@ -420,7 +423,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 						  left, qual, right, user);
 				} else
 				if (debug) {
-					log_debug(LOG_DEBUG,
+					log_error(LOG_DEBUG,
 						  "requirement \"%s %s %s\" "
 						  "met by user \"%s\"",
 						  left, qual, right, user);
@@ -433,7 +436,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 						  left, qual, right, user);
 				} else
 				if (debug) {
-					log_debug(LOG_DEBUG,
+					log_error(LOG_DEBUG,
 						  "requirement \"%s %s %s\" "
 						  "not met by user \"%s\"",
 						  left, qual, right, user);
