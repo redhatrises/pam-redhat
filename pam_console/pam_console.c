@@ -23,8 +23,7 @@
  * and everything in /var/run/console/
  */
 
-#include "../config.h"
-#include "../lib/libmisc.h"
+#include "../../_pam_aconf.h"
 #include <errno.h>
 #include <glib.h>
 #include <pwd.h>
@@ -37,19 +36,21 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
+#define STATIC static
 #include "pam_console.h"
 
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
+#include <security/_pam_modutil.h>
 
-/* In order to avoid errors in pam_get_item(), we need a very unfortunate
- * cast.  This is a terrible design error in Linux-PAM which creates
- * source-level incompatibilities with other PAM implementations.  :-(
+/* In order to avoid errors in pam_get_item(), we need a very
+ * unfortunate cast.  This is a terrible design error in PAM
+ * that Linux-PAM slavishly follows.  :-(
  */
 #define CAST_ME_HARDER (const void**)
 
-static char consolelock[PATH_MAX] = LOCKDIR "/console.lock";
-static char consolerefs[PATH_MAX] = LOCKDIR "/console/";
+static char consolelock[PATH_MAX] = LOCKDIR ".lock";
+static char consolerefs[PATH_MAX] = LOCKDIR "/";
 static char consoleapps[PATH_MAX] = "/etc/security/console.apps/";
 static char consoleperms[PATH_MAX] = "/etc/security/console.perms";
 static int configfileparsed = 0;
@@ -58,7 +59,7 @@ static int allow_nonroot_tty = 0;
 
 /* some syslogging */
 
-void
+static void
 _pam_log(int err, int debug_p, const char *format, ...)
 {
     va_list args;
@@ -72,7 +73,7 @@ _pam_log(int err, int debug_p, const char *format, ...)
     closelog();
 }
 
-void *
+static void *
 _do_malloc(size_t req)
 {
   void *ret;
@@ -108,7 +109,7 @@ is_root(pam_handle_t *pamh, const char *username) {
      */
     struct passwd *pwd;
 
-    pwd = libmisc_getpwnam(pamh, username);
+    pwd = _pammodutil_getpwnam(pamh, username);
     if (pwd == NULL) {
         _pam_log(LOG_ERR, FALSE, "getpwnam failed for %s", username);
         return 0;
@@ -124,14 +125,19 @@ lock_console(const char *id)
     fd = open(consolelock, O_RDWR|O_CREAT|O_EXCL, 0600);
     if (fd < 0) {
 	_pam_log(LOG_INFO, TRUE,
-		 "console file lock already in place %s", consolelock);
+		"console file lock already in place %s", consolelock);
 	return -1;
     }
-    ret_val = libmisc_retry_write(fd, id, strlen(id)) != strlen(id);
-    close(fd);
+    ret_val = _pammodutil_write (fd, id, strlen(id));
     if (ret_val == -1) {
-        unlink(consolelock);
-        return -1;
+	close(fd);
+    }
+    else {
+	ret_val = close(fd);
+    }
+    if (ret_val == -1) {
+	unlink(consolelock);
+	return -1;
     }
     return 0;
 }
@@ -166,7 +172,7 @@ top:
 	lockinfo.l_whence = SEEK_SET;
 	lockinfo.l_start = 0;
 	lockinfo.l_len = 0;
-	alarm(20);	/* FIXME: what if caller has sigalrm masked? */
+	alarm(20);      /* FIXME: what if caller has sigalrm masked? */
 	err = fcntl(fd, F_SETLKW, &lockinfo);
 	alarm(0);
 	if (err == EAGAIN) {
@@ -208,7 +214,7 @@ top:
     }
     buf = _do_malloc(st.st_size+2); /* size will never grow by more than one */
     if (st.st_size) {
-	if (libmisc_retry_read(fd, buf, st.st_size) != st.st_size) {
+	if (_pammodutil_read (fd, buf, st.st_size) == -1) {
 	    _pam_log(LOG_ERR, FALSE,
 		    "\"impossible\" read error on %s", filename);
 	    err = -1; goto return_error;
@@ -236,7 +242,7 @@ top:
 	}
 
 	sprintf(buf, "%d", val);
-	if (libmisc_retry_write(fd, buf, strlen(buf)) != strlen(buf)) {
+	if (_pammodutil_write(fd, buf, strlen(buf)) == -1) {
 	    _pam_log(LOG_ERR, FALSE,
 		    "\"impossible\" write error on %s", filename);
 	    err = -1; goto return_error;
@@ -277,7 +283,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
      * pam_console white paper */
     if (getuid() == 0) return PAM_SUCCESS; /* root always trivially succeeds */
 
-    pwd = libmisc_getpwuid(pamh, getuid());
+    pwd = _pammodutil_getpwuid(pamh, getuid());
     if (pwd == NULL) {
 	_pam_log(LOG_ERR, FALSE, "user with id %d not found", getuid());
 	return PAM_AUTH_ERR;
@@ -286,7 +292,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
     lockfile = _do_malloc(strlen(consolerefs) + strlen(pwd->pw_name) + 2);
     sprintf(lockfile, "%s%s", consolerefs, pwd->pw_name); /* trusted data */
 
-    libmisc_get_string_item(pamh, PAM_SERVICE, &service);
+    pam_get_item(pamh, PAM_SERVICE, CAST_ME_HARDER &service);
     appsfile = _do_malloc(strlen(consoleapps) + strlen(service) + 2);
     sprintf(appsfile, "%s%s", consoleapps, service); /* trusted data */
 
@@ -337,8 +343,10 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     D(("called."));
     _pam_log(LOG_ERR, TRUE, "pam_console open_session");
     _args_parse(argc, argv);
-    user_prompt = "login: ";
-    libmisc_get_string_item(pamh, PAM_USER_PROMPT, &user_prompt);
+    if(pam_get_item(pamh, PAM_USER_PROMPT, (const void **) &user_prompt)
+	!= PAM_SUCCESS) {
+	user_prompt = "user name: ";
+    }
     username = NULL;
     pam_get_user(pamh, &username, user_prompt);
     _pam_log(LOG_DEBUG, TRUE, "user is \"%s\"",
@@ -352,8 +360,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
         _pam_log(LOG_DEBUG, TRUE, "user \"%s\" is root", username);
 	return PAM_SUCCESS;
     }
-    tty = NULL;
-    libmisc_get_string_item(pamh, PAM_TTY, &tty);
+    pam_get_item(pamh, PAM_TTY, CAST_ME_HARDER &tty);
     if (!tty || !tty[0]) {
         _pam_log(LOG_ERR, TRUE, "TTY not defined");
 	return PAM_SESSION_ERR;
@@ -369,19 +376,20 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
     lockfile = _do_malloc(strlen(consolerefs) + strlen(username) + 2);
     sprintf(lockfile, "%s%s", consolerefs, username); /* trusted data */
-    count = use_count(lockfile, 1, 0);
+    count = use_count(lockfile , 1, 0);
     if (count < 0) {
-        ret = PAM_SESSION_ERR;
-    } else {
-        if (got_console) {
+	ret = PAM_SESSION_ERR;
+    }
+    else {
+	if (got_console) {
 	    _pam_log(LOG_DEBUG, TRUE, "%s is console user", username);
 	    /* woohoo!  We got here first, grab ownership and perms... */
 	    set_permissions(pamh, tty, username, allow_nonroot_tty);
 	    /* errors will be logged and are not critical */
-	    ret = PAM_SUCCESS;
+    	    ret = PAM_SUCCESS;
 	}
     }
-
+    
     free(lockfile);
     return ret;
 }
@@ -410,14 +418,15 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
     D(("called."));
     _args_parse(argc, argv);
-    user_prompt = "login: ";
-    libmisc_get_string_item(pamh, PAM_USER_PROMPT, &user_prompt);
+    if(pam_get_item(pamh, PAM_USER_PROMPT, (const void **) &user_prompt)
+	!= PAM_SUCCESS) {
+	user_prompt = "user name: ";
+    }
     pam_get_user(pamh, &username, user_prompt);
 
     if (!username || !username[0]) return PAM_SESSION_ERR;
     if (is_root(pamh, username)) return PAM_SUCCESS;
-    tty = NULL;
-    libmisc_get_string_item(pamh, PAM_TTY, &tty);
+    pam_get_item(pamh, PAM_TTY, CAST_ME_HARDER &tty);
     if (!tty || !tty[0]) return PAM_SESSION_ERR;
 
     /* get configuration */
@@ -430,7 +439,8 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     sprintf(lockfile, "%s%s", consolerefs, username); /* trusted data */
     count = use_count(lockfile, 0, 0);
     if (count < 0) {
-	err = PAM_SESSION_ERR; goto return_error;
+	err = PAM_SESSION_ERR;
+	goto return_error;
     }
 
     if (count == 1) {
@@ -439,14 +449,16 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	    if (fstat (fd, &st)) {
 		_pam_log(LOG_ERR, FALSE,
 			"\"impossible\" fstat error on %s", consolelock);
-		err = PAM_SESSION_ERR; close(fd); goto return_error;
+		err = PAM_SESSION_ERR; goto return_error;
 	    }
 	    consoleuser = _do_malloc(st.st_size+1);
 	    if (st.st_size) {
-		if (libmisc_retry_read(fd, consoleuser, st.st_size) != st.st_size) {
+		if (_pammodutil_read (fd, consoleuser, st.st_size) == -1) {
 		    _pam_log(LOG_ERR, FALSE,
 			    "\"impossible\" read error on %s", consolelock);
-		    err = PAM_SESSION_ERR; close(fd); goto return_error;
+		    err = PAM_SESSION_ERR; 
+		    close(fd);
+		    goto return_error;
 		}
 		consoleuser[st.st_size] = '\0';
 	    }
@@ -461,7 +473,8 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	    }
 	} else {
 	    /* didn't open file */
-	    err = PAM_SESSION_ERR; goto return_error;
+	    err = PAM_SESSION_ERR; 
+	    goto return_error;
 	}
     }
 
@@ -498,3 +511,11 @@ struct pam_module _pam_console_modstruct = {
 #endif
 
 /* end of module definition */
+
+/* supporting functions included from other .c files... */
+
+#include "regerr.c"
+#include "chmod.c"
+#include "modechange.c"
+#include "config.lex.c"
+#include "config.tab.c"

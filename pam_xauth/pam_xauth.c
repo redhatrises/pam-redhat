@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2004 Red Hat, Inc.
+ * Copyright 2001-2003 Red Hat, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,8 +35,7 @@
 
 #ident "$Id$"
 
-#include "../config.h"
-#include "../lib/libmisc.h"
+#include "../../_pam_aconf.h"
 #include <sys/types.h>
 #include <sys/fsuid.h>
 #include <sys/wait.h>
@@ -55,6 +54,7 @@
 
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
+#include <security/_pam_modutil.h>
 
 #define DATANAME "pam_xauth_cookie_file"
 #define XAUTHBIN "/usr/X11R6/bin/xauth"
@@ -195,7 +195,7 @@ check_acl(pam_handle_t *pamh,
 	int i;
 	uid_t euid;
 	/* Check this user's <sense> file. */
-	pwd = libmisc_getpwnam(pamh, this_user);
+	pwd = _pammodutil_getpwnam(pamh, this_user);
 	if (pwd == NULL) {
 		syslog(LOG_ERR, "pam_xauth: error determining "
 		       "home directory for '%s'", this_user);
@@ -273,7 +273,8 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	char xauthpath[] = XAUTHBIN;
 	char *cookiefile = NULL, *xauthority = NULL,
 	     *cookie = NULL, *display = NULL, *tmp = NULL;
-	const char *user, *xauth = xauthpath, *user_prompt;
+	const char *user, *xauth = xauthpath;
+	const char *user_prompt;
 	struct passwd *tpwd, *rpwd;
 	int fd, i, debug = 0;
 	uid_t systemuser = 499, targetuser = 0, euid;
@@ -323,14 +324,16 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	/* Read the target user's name. */
-	user_prompt = "login: ";
-	libmisc_get_string_item(pamh, PAM_USER_PROMPT, &user_prompt);
+	if (pam_get_item(pamh, PAM_USER_PROMPT, (const void**)&user_prompt)
+	    != PAM_SUCCESS) {
+		user_prompt = "login: ";
+	}
 	if (pam_get_user(pamh, &user, user_prompt) != PAM_SUCCESS) {
 		syslog(LOG_ERR, "pam_xauth: error determining target "
 		       "user's name");
 		return PAM_SESSION_ERR;
 	}
-	rpwd = libmisc_getpwuid(pamh, getuid());
+	rpwd = _pammodutil_getpwuid(pamh, getuid());
 	if (rpwd == NULL) {
 		syslog(LOG_ERR, "pam_xauth: error determining invoking "
 		       "user's name");
@@ -339,7 +342,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* Get the target user's UID and primary GID, which we'll need to set
 	 * on the xauthority file we create later on. */
-	tpwd = libmisc_getpwnam(pamh, user);
+	tpwd = _pammodutil_getpwnam(pamh, user);
 	if (tpwd == NULL) {
 		syslog(LOG_ERR, "pam_xauth: error determining target "
 		       "user's UID");

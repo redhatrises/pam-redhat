@@ -1,0 +1,9 @@
+Changelog of pam-redhat modules
+-------------------------------
+
+This changelog describes only changes after branching of pam-redhat modules
+without autoconf support.
+
+0.78-1: Mon Jan 10 2005
+
+* Backported some changes from head (tmraz)

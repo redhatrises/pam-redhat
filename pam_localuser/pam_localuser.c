@@ -1,5 +1,5 @@
 /*
- * Copyright 2001,2004 Red Hat, Inc.
+ * Copyright 2001, 2004 Red Hat, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,8 +33,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../config.h"
-#include "../lib/libmisc.h"
+#include "../../_pam_aconf.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -50,8 +49,8 @@
 
 #define PAM_SM_AUTH
 #define PAM_SM_ACCOUNT
-#include <security/pam_modules.h>
-#include <security/_pam_macros.h>
+#include "../../libpam/include/security/pam_modules.h"
+#include "../../libpam/include/security/_pam_macros.h"
 
 #define MODULE_NAME "pam_localuser"
 
@@ -66,15 +65,15 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 	const char *user, *user_prompt;
 
 	/* process arguments */
-	for (i = 0; i < argc; i++) {
-		if (strcmp("debug", argv[i]) == 0) {
+	for(i = 0; i < argc; i++) {
+		if(strcmp("debug", argv[i]) == 0) {
 			debug = 1;
 		}
 	}
-	for (i = 0; i < argc; i++) {
-		if (strncmp("file=", argv[i], 5) == 0) {
+	for(i = 0; i < argc; i++) {
+		if(strncmp("file=", argv[i], 5) == 0) {
 			filename = argv[i] + 5;
-			if (debug) {
+			if(debug) {
 				openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 				syslog(LOG_DEBUG, "set filename to \"%s\"",
 				       filename);
@@ -85,7 +84,7 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 
 	/* open the file */
 	fp = fopen(filename, "r");
-	if (fp == NULL) {
+	if(fp == NULL) {
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "error opening \"%s\": %s", filename,
 		       strerror(errno));
@@ -93,36 +92,36 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 		return PAM_SYSTEM_ERR;
 	}
 
-	user_prompt = "login: ";
-	libmisc_get_string_item(pamh, PAM_USER_PROMPT, &user_prompt);
-	if (pam_get_user(pamh, &user, user_prompt) != PAM_SUCCESS) {
+	if(pam_get_item(pamh, PAM_USER, (const void**) &user_prompt) != PAM_SUCCESS) {
+		user_prompt = "login: ";
+	}
+	if(pam_get_user(pamh, &user, user_prompt) != PAM_SUCCESS) {
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "user name not specified yet");
 		closelog();
 		fclose(fp);
 		return PAM_SYSTEM_ERR;
 	}
-
 	if ((user == NULL) || (strlen(user) == 0)) {
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "user name not valid");
 		closelog();
 		fclose(fp);
 		return PAM_SYSTEM_ERR;
-	}
+        }
 
 	/* scan the file, using fgets() instead of fgetpwent() because i
 	 * don't want to mess with applications which call fgetpwent() */
 	ret = PAM_PERM_DENIED;
 	snprintf(name, sizeof(name), "%s:", user);
 	i = strlen(name);
-	while (fgets(line, sizeof(line), fp) != NULL) {
-		if (debug) {
+	while(fgets(line, sizeof(line), fp) != NULL) {
+		if(debug) {
 			openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "checking \"%s\"", line);
 			closelog();
 		}
-		if (strncmp(name, line, i) == 0) {
+		if(strncmp(name, line, i) == 0) {
 			ret = PAM_SUCCESS;
 			break;
 		}

@@ -41,8 +41,7 @@
 #define PAM_SM_AUTH
 #define PAM_SM_SESSION
 
-#include "../config.h"
-#include "../lib/libmisc.h"
+#include "../../_pam_aconf.h"
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -58,8 +57,10 @@
 #include <unistd.h>
 #include "hmacsha1.h"
 
+#include "../../_pam_aconf.h"
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
+#include <security/_pam_modutil.h>
 
 /* The default timeout we use is 5 minutes, which matches the sudo default
  * for the timestamp_timeout parameter. */
@@ -195,8 +196,9 @@ static int
 get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		   char *path, size_t len)
 {
-	const char *user, *user_prompt, *ruser, *tty;
+	const char *user, *ruser, *tty;
 	const char *tdir = TIMESTAMPDIR;
+	const char *user_prompt;
 	char scratch[BUFLEN];
 	struct passwd *pwd;
 	int i, debug = 0;
@@ -222,8 +224,9 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		return i;
 	}
 	/* Get the name of the target user. */
-	user_prompt = "login: ";
-	libmisc_get_string_item(pamh, PAM_USER_PROMPT, &user_prompt);
+	if (pam_get_item(pamh, PAM_USER_PROMPT, (const void**)&user_prompt) != PAM_SUCCESS) {
+		user_prompt = "login: ";
+	}
 	if (pam_get_user(pamh, &user, user_prompt) != PAM_SUCCESS) {
 		user = NULL;
 	}
@@ -234,12 +237,12 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		syslog(LOG_DEBUG, MODULE ": becoming user `%s'", user);
 	}
 	/* Get the name of the source user. */
-	if (libmisc_get_string_item(pamh, PAM_RUSER, &ruser) != PAM_SUCCESS) {
+	if (pam_get_item(pamh, PAM_RUSER, (const void**)&ruser) != PAM_SUCCESS) {
 		ruser = NULL;
 	}
 	if ((ruser == NULL) || (strlen(ruser) == 0)) {
 		/* Barring that, use the current RUID. */
-		pwd = libmisc_getpwuid(pamh, getuid());
+		pwd = _pammodutil_getpwuid(pamh, getuid());
 		if (pwd != NULL) {
 			if (strlen(pwd->pw_name) < sizeof(scratch)) {
 				strncpy(scratch, pwd->pw_name, sizeof(scratch));
@@ -255,7 +258,7 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		syslog(LOG_DEBUG, MODULE ": currently user `%s'", ruser);
 	}
 	/* Get the name of the terminal. */
-	if (libmisc_get_string_item(pamh, PAM_TTY, &tty) != PAM_SUCCESS) {
+	if (pam_get_item(pamh, PAM_TTY, (const void**)&tty) != PAM_SUCCESS) {
 		tty = NULL;
 	}
 	if ((tty == NULL) || (strlen(tty) == 0)) {
@@ -294,12 +297,12 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 static void
 verbose_success(pam_handle_t *pamh, int debug, int diff)
 {
-	const struct pam_conv *conv;
+	struct pam_conv *conv;
 	char text[BUFLEN];
 	struct pam_message message;
 	const struct pam_message *messages[] = {&message};
 	struct pam_response *responses;
-	if (libmisc_get_conv_item(pamh, &conv) == PAM_SUCCESS) {
+	if (pam_get_item(pamh, PAM_CONV, (const void**) &conv) == PAM_SUCCESS) {
 		if (conv->conv != NULL) {
 			memset(&message, 0, sizeof(message));
 			message.msg_style = PAM_TEXT_INFO;
@@ -362,8 +365,9 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	/* Get the name of the service. */
-	service = NULL;
-	libmisc_get_string_item(pamh, PAM_SERVICE, &service);
+	if (pam_get_item(pamh, PAM_SERVICE, (const void**)&service) != PAM_SUCCESS) {
+		service = NULL;
+	}
 	if ((service == NULL) || (strlen(service) == 0)) {
 		service = "(unknown)";
 	}
@@ -457,7 +461,6 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			if (verbose) {
 				verbose_success(pamh, debug, now - st.st_mtime);
 			}
-			close(fd);
 			return PAM_SUCCESS;
 		} else {
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' has "
@@ -465,7 +468,6 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			       "access to %s for UID %ld",
 			       path, (long) (now - st.st_mtime),
 			       service, (long)getuid());
-			close(fd);
 			return PAM_AUTH_ERR;
 		}
 	}
