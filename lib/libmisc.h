@@ -17,5 +17,9 @@ int libmisc_user_in_group_nam_gid(pam_handle_t *pamh,
 				  const char *user, gid_t group);
 int libmisc_user_in_group_uid_gid(pam_handle_t *pamh,
 				  uid_t user, gid_t group);
+int libmisc_converse(pam_handle_t *pamh,
+		     struct pam_message *messages, int n_prompts,
+		     struct pam_response **responses);
+void libmisc_free_responses(struct pam_response *responses, int n_responses);
 
 #endif
