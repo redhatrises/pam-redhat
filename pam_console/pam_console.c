@@ -23,7 +23,8 @@
  * and everything in /var/run/console/
  */
 
-#include "../../_pam_aconf.h"
+#include "../config.h"
+#include "../lib/libmisc.h"
 #include <errno.h>
 #include <glib.h>
 #include <pwd.h>
@@ -36,12 +37,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
-#define STATIC static
 #include "pam_console.h"
 
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
-#include <security/_pam_modutil.h>
 
 /* In order to avoid errors in pam_get_item(), we need a very
  * unfortunate cast.  This is a terrible design error in PAM
@@ -49,8 +48,8 @@
  */
 #define CAST_ME_HARDER (const void**)
 
-static char consolelock[PATH_MAX] = LOCKDIR ".lock";
-static char consolerefs[PATH_MAX] = LOCKDIR "/";
+static char consolelock[PATH_MAX] = LOCKDIR "/console.lock";
+static char consolerefs[PATH_MAX] = LOCKDIR "/console/";
 static char consoleapps[PATH_MAX] = "/etc/security/console.apps/";
 static char consoleperms[PATH_MAX] = "/etc/security/console.perms";
 static int configfileparsed = 0;
@@ -59,7 +58,7 @@ static int allow_nonroot_tty = 0;
 
 /* some syslogging */
 
-static void
+void
 _pam_log(int err, int debug_p, const char *format, ...)
 {
     va_list args;
@@ -73,7 +72,7 @@ _pam_log(int err, int debug_p, const char *format, ...)
     closelog();
 }
 
-static void *
+void *
 _do_malloc(size_t req)
 {
   void *ret;
@@ -109,7 +108,7 @@ is_root(pam_handle_t *pamh, const char *username) {
      */
     struct passwd *pwd;
 
-    pwd = _pammodutil_getpwnam(pamh, username);
+    pwd = libmisc_getpwnam(pamh, username);
     if (pwd == NULL) {
         _pam_log(LOG_ERR, FALSE, "getpwnam failed for %s", username);
         return 0;
@@ -274,7 +273,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
      * pam_console white paper */
     if (getuid() == 0) return PAM_SUCCESS; /* root always trivially succeeds */
 
-    pwd = _pammodutil_getpwuid(pamh, getuid());
+    pwd = libmisc_getpwuid(pamh, getuid());
     if (pwd == NULL) {
 	_pam_log(LOG_ERR, FALSE, "user with id %d not found", getuid());
 	return PAM_AUTH_ERR;
@@ -483,11 +482,3 @@ struct pam_module _pam_console_modstruct = {
 #endif
 
 /* end of module definition */
-
-/* supporting functions included from other .c files... */
-
-#include "regerr.c"
-#include "chmod.c"
-#include "modechange.c"
-#include "config.lex.c"
-#include "config.tab.c"

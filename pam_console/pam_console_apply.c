@@ -2,7 +2,7 @@
  * Read in the file, and grant ownerships to whoever has the lock.
  */
 
-#include "../../_pam_aconf.h"
+#include "../config.h"
 #include <errno.h>
 #include <glib.h>
 #include <pwd.h>
@@ -15,18 +15,17 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
-#define STATIC static
 #include "pam_console.h"
 
 #include <security/_pam_macros.h>
 
 #define CAST_ME_HARDER (const void**)
 
-static char consolelock[PATH_MAX] = LOCKDIR ".lock";
+static char consolelock[PATH_MAX] = LOCKDIR "/console.lock";
 static char consoleperms[PATH_MAX] = "/etc/security/console.perms";
 static int debug = 0;
 
-static void *
+void *
 _do_malloc(size_t req)
 {
 	void *ret;
@@ -35,7 +34,7 @@ _do_malloc(size_t req)
 	return ret;
 }
 
-static void
+void
 _pam_log(int err, int debug_p, const char *format, ...)
 {
 	va_list args;
@@ -106,11 +105,3 @@ main(int argc, char **argv)
 return_error:
 	return 1;
 }
-
-/* supporting functions included from other .c files... */
-
-#include "regerr.c"
-#include "chmod.c"
-#include "modechange.c"
-#include "config.lex.c"
-#include "config.tab.c"
