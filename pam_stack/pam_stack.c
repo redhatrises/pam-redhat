@@ -38,12 +38,14 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * $Log$
+ * Revision 1.28  2001/11/21 19:38:57  nalin
+ * free handlers at clean-up time
+ *
  * Revision 1.27  2001/11/21 19:38:33  nalin
  * free handlers at clean-up time
  *
  * Revision 1.26  2001/11/21 17:54:59  nalin
  * fix some memory leaks (reported by Fernando Trias)
- *
  *
  */
 
