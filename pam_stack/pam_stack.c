@@ -427,6 +427,12 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 		closelog();
 	}
 	final_ret = _pam_dispatch(stack_this->pamh, flags, which_stack);
+	if(debug) {
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "substack returned %d (%s)", final_ret,
+		       pam_strerror(stack_this->pamh, final_ret));
+		closelog();
+	}
 
 	/* Copy the useful data back up to the main stack, environment first. */
 	env = pam_getenvlist(stack_this->pamh); 
