@@ -4,6 +4,11 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.78-3: Wed Jan 12 2005
+
+* Correct a bad merge in pam_console
+* Make pam_localuser and pam_xauth to be in sync with upstream
+
 0.78-2: Mon Jan 10 2005
 
 * Backported some changes from head (tmraz)

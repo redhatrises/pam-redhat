@@ -62,7 +62,7 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 	int debug = 0;
 	const char *filename = "/etc/passwd";
 	char line[LINE_MAX], name[LINE_MAX];
-	const char *user, *user_prompt;
+	const char *user;
 
 	/* process arguments */
 	for(i = 0; i < argc; i++) {
@@ -92,10 +92,7 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 		return PAM_SYSTEM_ERR;
 	}
 
-	if(pam_get_item(pamh, PAM_USER, (const void**) &user_prompt) != PAM_SUCCESS) {
-		user_prompt = "login: ";
-	}
-	if(pam_get_user(pamh, &user, user_prompt) != PAM_SUCCESS) {
+	if(pam_get_user(pamh, &user, NULL) != PAM_SUCCESS) {
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "user name not specified yet");
 		closelog();
