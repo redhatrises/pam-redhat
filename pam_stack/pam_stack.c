@@ -27,7 +27,11 @@
 #define PAM_CONST const
 
 /* Oh yeah, this is cheap. */
+#include "../../libpam/include/security/_pam_types.h"
 #include "../../libpam/pam_private.h"
+#include <sys/syslog.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define MODULE_NAME "pam_stack"
 

@@ -31,6 +31,9 @@
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
 
+#ifndef MAP_FAILED
+#define MAP_FAILED -1
+#endif
 
 typedef enum {
   Source = 0,
