@@ -4,10 +4,10 @@
  * $Id$
  */
 
-#include "../../_pam_aconf.h"
+#include "../config.h"
 
 #define	PAM_SM_SESSION
-#include "../../libpam/include/security/pam_modules.h"
+#include <security/pam_modules.h>
 
 #include <syslog.h>
 #include <string.h>
