@@ -9,6 +9,7 @@ without autoconf support.
 * Merged fix for gcc4 compilation and config file parsing from dist
 * Added functionality for executing binaries when locking/unlocking console
 * Distribute as tar.bz2
+* pam_console.so: Link glib statically because it's in /usr/lib
 
 0.78-3: Wed Jan 12 2005
 

@@ -19,7 +19,7 @@ endif
 LOCKDIR = /var/run/console
 LOCKMODE = 755
 LIBS +=  $(GLIB_LIBS) -L../pammodutil -lpammodutil
-LDFLAGS = $(LIBS)
+
 
 LOCAL_CONF1 = console.perms
 INSTALLED_CONF1 = $(SCONFIGD)/console.perms
@@ -35,6 +35,7 @@ BISON_OPTS = -d
 LIBSRC = pam_console.c pam_console.h chmod.c modechange.c regerr.c config.lex.c config.tab.c handlers.c
 BINSRC = pam_console_apply.c pam_console.h chmod.c modechange.c regerr.c config.lex.c config.tab.c
 
+BINOBJ = $(TITLE)_apply.o
 BINARY = $(TITLE)_apply
 
 LIBOBJ = $(TITLE).o
@@ -72,8 +73,10 @@ ifdef STATIC
 	( cd .. ; ./register_static $(TITLE) $(TITLE)/$(LIBSTATIC) )
 endif
 
-$(BINARY): $(BINSRC)
-	$(CC) $(CFLAGS) $(TARGET_ARCH) -o $@ $^ -Wl,-Bstatic $(LDFLAGS) -Wl,-Bdynamic ../../libpam/libpam.so -lc
+$(BINARY): $(BINOBJ)
+	$(LD) $(LDFLAGS) -o $@ $(BINOBJ) -Wl,-Bstatic $(LIBS) -Wl,-Bdynamic ../../libpam/libpam.so -lc
+
+$(BINOBJ): $(BINSRC)
 
 ifdef DYNAMIC
 $(LIBOBJD): $(LIBSRC)
@@ -81,7 +84,7 @@ endif
 
 ifdef DYNAMIC
 $(LIBSHARED):	$(LIBOBJD)
-	$(LD_D) -o $@ $(LIBOBJD) $(LIBS) $(NEED_LINK_LIB_C)
+	$(LD_D) $(LDFLAGS) -o $@ $(LIBOBJD) -Wl,--exclude-libs,ALL,-Bstatic $(LIBS) -Wl,-Bdynamic  $(NEED_LINK_LIB_C)
 
 endif
 
