@@ -102,15 +102,15 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		if(defined_items[i].num == PAM_SERVICE) break;
 	}
 	if(i >= sizeof(defined_items) / sizeof(defined_items[0])) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_WARNING, "serious internal problems!");
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_ERR, "serious internal problems!");
 		closelog();
 		return PAM_SYSTEM_ERR;
 	}
 
 	/* Sign-on message. */
 	if(debug) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "called from \"%s\"", defined_items[i].item);
 		closelog();
 	}
@@ -118,8 +118,8 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	/* Save the main service name. */
 	ret = pam_get_item(pamh, PAM_SERVICE, &defined_items[i].item);
 	if(ret != PAM_SUCCESS) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_WARNING, "pam_get_data(PAM_SERVICE) returned %s",
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_ERR, "pam_get_data(PAM_SERVICE) returned %s",
 		       pam_strerror(pamh, ret));
 		closelog();
 		return PAM_SYSTEM_ERR;
@@ -139,28 +139,28 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	}
 
 	if(service == NULL) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_WARNING, "required argument \"service\" not given");
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_ERR, "required argument \"service\" not given");
 		closelog();
 		return PAM_SYSTEM_ERR;
 	}
 
 	/* Create and initialize a pam_handle_t structure for our substack. */
 	if(debug) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "initializing");
 		closelog();
 	}
 	sub_pamh = calloc(1, sizeof(pam_handle_t));
 
 	if(debug) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "creating environment");
 		closelog();
 	}
 	if(_pam_make_env(sub_pamh) != PAM_SUCCESS) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_WARNING, "_pam_make_env() returned %s",
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_ERR, "_pam_make_env() returned %s",
 		       pam_strerror(pamh, ret));
 		closelog();
 		return PAM_SYSTEM_ERR;
@@ -171,7 +171,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			     &defined_items[i].item);
 		if(defined_items[i].item == NULL) {
 			if(debug) {
-				openlog("pam_stack", LOG_CONS|LOG_PID,
+				openlog("pam_stack", LOG_PID,
 					LOG_AUTHPRIV);
 				syslog(LOG_DEBUG, "item %s is NULL",
 				       defined_items[i].name);
@@ -181,7 +181,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		}
 		if(debug && (defined_items[i].num != PAM_CONV)) {
 			if(debug) {
-				openlog("pam_stack", LOG_CONS|LOG_PID,
+				openlog("pam_stack", LOG_PID,
 					LOG_AUTHPRIV);
 				syslog(LOG_DEBUG, "setting item %s to \"%s\"",
 				       defined_items[i].name,
@@ -193,9 +193,9 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			           defined_items[i].item);
 		if(ret != PAM_SUCCESS) {
 			if(debug) {
-				openlog("pam_stack", LOG_CONS|LOG_PID,
+				openlog("pam_stack", LOG_PID,
 					LOG_AUTHPRIV);
-				syslog(LOG_WARNING, "pam_set_item(%s) returned %s",
+				syslog(LOG_ERR, "pam_set_item(%s) returned %s",
 				       defined_items[i].name,
 				       pam_strerror(pamh, ret));
 				closelog();
@@ -205,7 +205,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	}
 
 	if(debug) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "setting item PAM_SERVICE to %s", service);
 		closelog();
 	}
@@ -214,8 +214,8 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	/* Initialize the handlers. */
 	_pam_start_handlers(sub_pamh);
 	if(_pam_init_handlers(sub_pamh) != PAM_SUCCESS) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_WARNING, "_pam_init_handlers() returned %s",
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_ERR, "_pam_init_handlers() returned %s",
 		       defined_items[i].num, pam_strerror(pamh, ret));
 		closelog();
 		return PAM_SYSTEM_ERR;
@@ -225,7 +225,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	env = pam_getenvlist(pamh); 
 	for(i = 0; (env != NULL) && (env[i] != NULL); i++) {
 		if(debug) {
-			openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "setting environment \"%s\" in child",
 			       env[i]);
 			closelog();
@@ -233,7 +233,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		pam_putenv(sub_pamh, env[i]);
 	}
 	if(debug) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "passing data to child");
 		closelog();
 	}
@@ -241,7 +241,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 
 	/* Now call the substack. */
 	if(debug) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "calling substack");
 		closelog();
 	}
@@ -251,7 +251,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	env = pam_getenvlist(sub_pamh); 
 	for(i = 0; (env != NULL) && (env[i] != NULL); i++) {
 		if(debug) {
-			openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "setting environment \"%s\" in "
 			       "parent", env[i]);
 			closelog();
@@ -261,8 +261,8 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
 		const void *ignored;
 		pam_get_item(pamh, defined_items[i].num, &ignored);
-		if(ignored != NULL) {
-			openlog("pam_stack", LOG_CONS|LOG_PID,
+		if((ignored != NULL) && debug) {
+			openlog("pam_stack", LOG_PID,
 				LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "not passing %s back up to parent",
 			       defined_items[i].name);
@@ -273,7 +273,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			     &defined_items[i].item);
 		if(defined_items[i].item == NULL) {
 			if(debug) {
-				openlog("pam_stack", LOG_CONS|LOG_PID,
+				openlog("pam_stack", LOG_PID,
 					LOG_AUTHPRIV);
 				syslog(LOG_DEBUG, "substack's item %s is NULL",
 				       defined_items[i].name);
@@ -282,7 +282,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			continue;
 		}
 		if(debug && (defined_items[i].num != PAM_CONV)) {
-			openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "setting parent item %s to \"%s\"",
 			       defined_items[i].name, defined_items[i].item);
 			closelog();
@@ -290,8 +290,8 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		ret = pam_set_item(pamh, defined_items[i].num,
 			           defined_items[i].item);
 		if(ret != PAM_SUCCESS) {
-			openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
-			syslog(LOG_WARNING, "pam_set_item(%s) returned %s",
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_ERR, "pam_set_item(%s) returned %s",
 			       defined_items[i].name, pam_strerror(pamh, ret));
 			closelog();
 			return PAM_SYSTEM_ERR;
@@ -299,7 +299,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	}
 
 	if(debug) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "passing data back");
 		closelog();
 	}
@@ -314,7 +314,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	}
 	_pam_drop(sub_pamh);
 	if(debug) {
-		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "returning %d (%s)", ret,
 		       pam_strerror(sub_pamh, ret));
 		closelog();

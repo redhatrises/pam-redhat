@@ -126,11 +126,10 @@ STATIC void
 parse_file(char *name) {
   FILE *infile;
 
-  _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, TRUE, "parsing config file %s", name);
+  _pam_log(LOG_DEBUG, TRUE, "parsing config file %s", name);
   infile = fopen(name, "r");
   if (!infile) {
-    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
-	     "could not parse required file %s", name);
+    _pam_log(LOG_ERR, FALSE, "could not parse required file %s", name);
     return;
   }
 
@@ -169,7 +168,7 @@ check_console_name (const char *consolename, int nonroot_ok) {
     struct stat st;
     char full_path[PATH_MAX];
 
-    _pam_log(LOG_PID|LOG_AUTHPRIV, TRUE, "check console %s", consolename);
+    _pam_log(LOG_DEBUG, TRUE, "check console %s", consolename);
     if (consoleNameCache != consolename) {
 	consoleNameCache = consolename;
 	if (consoleHash) g_hash_table_destroy(consoleHash);
@@ -198,8 +197,7 @@ check_console_name (const char *consolename, int nonroot_ok) {
     memset(&st, 0, sizeof(st));
     statted = 0;
 
-    _pam_log(LOG_PID|LOG_AUTHPRIV, TRUE, "checking possible console \"%s\"",
-	     consolename);
+    _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"", consolename);
     if (lstat(consolename, &st) != -1) {
         statted = 1;
     }
@@ -207,7 +205,7 @@ check_console_name (const char *consolename, int nonroot_ok) {
         strcpy(full_path, "/dev/");
         strncat(full_path, consolename,
                 sizeof(full_path) - 1 - strlen(full_path));
-        _pam_log(LOG_PID|LOG_AUTHPRIV, TRUE, "checking possible console \"%s\"",
+        _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"",
 		 full_path);
         if (lstat(full_path, &st) != -1) {
            statted = 1;
@@ -223,7 +221,7 @@ check_console_name (const char *consolename, int nonroot_ok) {
             l = (l < dot - consolename - 1) ? l : dot - consolename - 1;
         }
         strncat(full_path, consolename + 1, l);
-        _pam_log(LOG_PID|LOG_AUTHPRIV, TRUE, "checking possible console \"%s\"",
+        _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"",
 		 full_path);
         if (lstat(full_path, &st) != -1) {
            statted = 1;
@@ -233,19 +231,19 @@ check_console_name (const char *consolename, int nonroot_ok) {
     if (statted) {
         int ok = 0;
         if (st.st_uid == 0) {
-            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE, "console %s is owned by UID 0", consolename);
+            _pam_log(LOG_DEBUG, TRUE, "console %s is owned by UID 0", consolename);
             ok = 1;
         }
         if (S_ISCHR(st.st_mode)) {
-            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE, "console %s is a character device", consolename);
+            _pam_log(LOG_DEBUG, TRUE, "console %s is a character device", consolename);
             ok = 1;
         }
         if (!ok && !nonroot_ok) {
-            _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, FALSE, "%s is not a valid console device because it is owned by UID %d and the allow_nonroot flag was not set", consolename, st.st_uid);
+            _pam_log(LOG_INFO, TRUE, "%s is not a valid console device because it is owned by UID %d and the allow_nonroot flag was not set", consolename, st.st_uid);
             found = 0;
         }
     } else {
-        _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, FALSE, "can't find device or X11 socket to examine for %s", consolename);
+        _pam_log(LOG_INFO, TRUE, "can't find device or X11 socket to examine for %s", consolename);
         found = 0;
     }
 
@@ -253,7 +251,7 @@ check_console_name (const char *consolename, int nonroot_ok) {
 	return 1;
 
     /* not found */
-    _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, TRUE, "did not find console %s", consolename);
+    _pam_log(LOG_INFO, TRUE, "did not find console %s", consolename);
     if (consoleHash) {
 	g_hash_table_destroy(consoleHash);
 	consoleHash = NULL;
@@ -273,8 +271,7 @@ set_permissions(const char *consolename, const char *username, int nonroot_ok) {
 
     p = getpwnam(username);
     if (!p) {
-	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
-		 "getpwnam failed for \"%s\"", username);
+	_pam_log(LOG_ERR, FALSE, "getpwnam failed for \"%s\"", username);
 	return -1;
     }
 
@@ -306,15 +303,13 @@ reset_permissions(const char *consolename, int nonroot_ok) {
 	if (g_hash_table_lookup(consoleHash, c->console_class)) {
 	    p = getpwnam(c->revert_owner ? c->revert_owner : "root");
 	    if (!p) {
-		_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
-			 "getpwnam failed for %s",
+		_pam_log(LOG_ERR, FALSE, "getpwnam failed for %s",
 			 c->revert_owner ? c->revert_owner : "root");
 		return -1;
 	    }
             g = getgrnam(c->revert_group ? c->revert_group : "root");
             if (!g) {
-                _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
-                         "getgrnam failed for %s",
+                _pam_log(LOG_ERR, FALSE, "getgrnam failed for %s",
                          c->revert_group ? c->revert_group : "root");
                 return -1;
             }

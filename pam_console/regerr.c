@@ -23,6 +23,6 @@ do_regerror(int errcode, const regex_t *preg) {
     }
 
     regerror(errcode, preg, errbuf, errbuf_size);
-    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+    _pam_log(LOG_ERR, 0,
 	     "regular expression error %s", errbuf);
 }

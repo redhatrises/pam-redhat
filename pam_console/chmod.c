@@ -290,7 +290,7 @@ chmod_filelist (char *mode, uid_t user, gid_t group, GSList *filelist)
     errors |= change_file_mode (result.gl_pathv[i], changes, 1);
     errors |= chown (result.gl_pathv[i], user, group);
 #if 0
-    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_INFO, 1
+    _pam_log(LOG_DEBUG, TRUE,
 	     "file %s (%d): mode %s\n", result.gl_pathv[i], user, mode);
 #endif
   }
@@ -321,7 +321,7 @@ chmod_file (char *mode, uid_t user, gid_t group, char *filename)
     errors |= change_file_mode (result.gl_pathv[i], changes, 1);
     errors |= chown (result.gl_pathv[i], user, group);
 #if 0
-    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_INFO, 1,
+    _pam_log(LOG_DEBUG, TRUE,
     	     "file %s (%d): mode %s\n", result.gl_pathv[i], user, mode);
 #endif
   }
