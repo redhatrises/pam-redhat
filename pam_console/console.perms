@@ -28,13 +28,13 @@
 <cdrom>=/dev/cdrom* /dev/cdroms/* /dev/cdwriter* /mnt/cdrom*
 <pilot>=/dev/pilot
 <jaz>=/mnt/jaz*
-<zip>=/mnt/pocketzip* /mnt/zip*
+<zip>=/mnt/pocketzip* /mnt/zip* /dev/zip*
 <ls120>=/dev/ls120 /mnt/ls120*
-<scanner>=/dev/scanner /dev/usb/scanner*
+<scanner>=/dev/scanner* /dev/usb/scanner*
 <rio500>=/dev/usb/rio500
 <camera>=/mnt/camera* /dev/usb/dc2xx* /dev/usb/mdc800*
 <memstick>=/mnt/memstick*
-<flash>=/mnt/flash*
+<flash>=/mnt/flash* /dev/flash*
 <diskonkey>=/mnt/diskonkey*
 <rem_ide>=/mnt/microdrive*
 <fb>=/dev/fb /dev/fb[0-9]* \
@@ -46,6 +46,9 @@
 <gpm>=/dev/gpmctl
 <dri>=/dev/nvidia* /dev/3dfx*
 <mainboard>=/dev/apm_bios
+<pmu>=/dev/pmu
+<bluetooth>=/dev/rfcomm*
+<raw1394>=/dev/raw1394
 
 # permission definitions
 <console>  0660 <floppy>     0660 root.floppy
@@ -56,9 +59,9 @@
 <console>  0600 <zip>        0660 root.disk
 <console>  0600 <ls120>      0660 root.disk
 <console>  0600 <scanner>    0600 root
-<console>  0600 <camera>     0600 root
-<console>  0600 <memstick>   0600 root
-<console>  0600 <flash>      0600 root
+<console>  0600 <camera>     0600 root.disk
+<console>  0600 <memstick>   0600 root.disk
+<console>  0600 <flash>      0600 root.disk
 <console>  0600 <diskonkey>  0660 root.disk
 <console>  0600 <rem_ide>    0660 root.disk
 <console>  0600 <fb>         0600 root
@@ -68,6 +71,9 @@
 <console>  0700 <gpm>	     0700 root
 <console>  0600 <mainboard>  0600 root
 <console>  0600 <rio500>     0600 root
+<console>  0600 <pmu>        0600 root
+<console>  0600 <bluetooth>  0600 root
+<console>  0600 <raw1394>    0600 root
 
 <xconsole> 0600 /dev/console 0600 root.root
 <xconsole> 0600 <dri>	     0600 root
