@@ -102,13 +102,14 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 		fclose(fp);
 		return PAM_SYSTEM_ERR;
 	}
+
 	if ((user == NULL) || (strlen(user) == 0)) {
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "user name not valid");
 		closelog();
 		fclose(fp);
 		return PAM_SYSTEM_ERR;
-        }
+	}
 
 	/* scan the file, using fgets() instead of fgetpwent() because i
 	 * don't want to mess with applications which call fgetpwent() */
