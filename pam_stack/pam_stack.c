@@ -309,7 +309,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 	}
 
 	/* Retrieve a previously-used stack, if we've been called before. */
-	if(pam_get_data(pamh, STACK_DATA_NAME, &stack_data) != PAM_SUCCESS) {
+	if(pam_get_data(pamh, STACK_DATA_NAME, (const void**)&stack_data) != PAM_SUCCESS) {
 		stack_data = NULL;
 	}
 
