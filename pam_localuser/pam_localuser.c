@@ -61,21 +61,20 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 	int i, ret = PAM_SUCCESS;
 	FILE *fp;
 	int debug = 0;
-	char filename[PATH_MAX] = "/etc/passwd";
+	const char *filename = "/etc/passwd";
 	char line[LINE_MAX], name[LINE_MAX];
 	const char *user, *user_prompt;
 
 	/* process arguments */
-	for(i = 0; i < argc; i++) {
-		if(strcmp("debug", argv[i]) == 0) {
+	for (i = 0; i < argc; i++) {
+		if (strcmp("debug", argv[i]) == 0) {
 			debug = 1;
 		}
 	}
-	for(i = 0; i < argc; i++) {
-		if(strncmp("file=", argv[i], 5) == 0) {
-			strncpy(filename, argv[i] + 5, sizeof(filename) - 1);
-			filename[sizeof(filename) - 1] = '\0';
-			if(debug) {
+	for (i = 0; i < argc; i++) {
+		if (strncmp("file=", argv[i], 5) == 0) {
+			filename = argv[i] + 5;
+			if (debug) {
 				openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 				syslog(LOG_DEBUG, "set filename to \"%s\"",
 				       filename);
@@ -86,7 +85,7 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 
 	/* open the file */
 	fp = fopen(filename, "r");
-	if(fp == NULL) {
+	if (fp == NULL) {
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "error opening \"%s\": %s", filename,
 		       strerror(errno));
@@ -96,10 +95,19 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 
 	user_prompt = "login: ";
 	libmisc_get_string_item(pamh, PAM_USER_PROMPT, &user_prompt);
-	if(pam_get_user(pamh, &user, user_prompt) != PAM_SUCCESS) {
+	if (pam_get_user(pamh, &user, user_prompt) != PAM_SUCCESS) {
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "user name not specified yet");
 		closelog();
+		fclose(fp);
+		return PAM_SYSTEM_ERR;
+	}
+
+	if ((user == NULL) || (strlen(user) == 0)) {
+		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_ERR, "user name not valid");
+		closelog();
+		fclose(fp);
 		return PAM_SYSTEM_ERR;
 	}
 
@@ -108,13 +116,13 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 	ret = PAM_PERM_DENIED;
 	snprintf(name, sizeof(name), "%s:", user);
 	i = strlen(name);
-	while(fgets(line, sizeof(line), fp) != NULL) {
-		if(debug) {
+	while (fgets(line, sizeof(line), fp) != NULL) {
+		if (debug) {
 			openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "checking \"%s\"", line);
 			closelog();
 		}
-		if(strncmp(name, line, i) == 0) {
+		if (strncmp(name, line, i) == 0) {
 			ret = PAM_SUCCESS;
 			break;
 		}
