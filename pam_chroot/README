@@ -22,4 +22,5 @@ The calling application must be executing with root privileges in order to
 be able to chroot() at all.  If the application needs to exec() other programs
 (such as a server process or spawning a shell), you will need to duplicate
 some portions of an actual root environment under the chroot()ed directory
-in order for it to work at all.
+in order for it to work at all.  If configured incorrectly, this module may
+potentially render the service unusable.
