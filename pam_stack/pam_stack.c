@@ -36,6 +36,12 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * $Log$
+ * Revision 1.26  2001/11/21 17:54:59  nalin
+ * fix some memory leaks (reported by Fernando Trias)
+ *
+ *
  */
 
 #define PAM_SM_AUTH
@@ -116,6 +122,9 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 			name = "PAM_AUTHTOK";
 			if(source->authtok) {
 				copied = 1;
+				if(dest->authtok) {
+					_pam_drop(dest->authtok);
+				}
 				dest->authtok = _pam_strdup(source->authtok);
 			} else {
 				reason = "source is NULL";
@@ -147,6 +156,9 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 			name = "PAM_OLDAUTHTOK";
 			if(source->oldauthtok) {
 				copied = 1;
+				if(dest->oldauthtok) {
+					_pam_drop(dest->oldauthtok);
+				}
 				dest->oldauthtok = _pam_strdup(source->oldauthtok);
 			} else {
 				reason = "source is NULL";
@@ -156,6 +168,9 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 			name = "PAM_RHOST";
 			if(source->rhost) {
 				copied = 1;
+				if(dest->rhost) {
+					_pam_drop(dest->rhost);
+				}
 				dest->rhost = _pam_strdup(source->rhost);
 			} else {
 				reason = "source is NULL";
@@ -165,6 +180,9 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 			name = "PAM_RUSER";
 			if(source->ruser) {
 				copied = 1;
+				if(dest->ruser) {
+					_pam_drop(dest->ruser);
+				}
 				dest->ruser = _pam_strdup(source->ruser);
 			} else {
 				reason = "source is NULL";
@@ -174,6 +192,9 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 			name = "PAM_SERVICE";
 			if(source->service_name) {
 				copied = 1;
+				if(dest->service_name) {
+					_pam_drop(dest->service_name);
+				}
 				dest->service_name = _pam_strdup(source->service_name);
 			} else {
 				reason = "source is NULL";
@@ -183,6 +204,9 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 			name = "PAM_TTY";
 			if(source->tty) {
 				copied = 1;
+				if(dest->tty) {
+					_pam_drop(dest->tty);
+				}
 				dest->tty = _pam_strdup(source->tty);
 			} else {
 				reason = "source is NULL";
@@ -192,6 +216,9 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 			name = "PAM_USER";
 			if(source->user) {
 				copied = 1;
+				if(dest->user) {
+					_pam_drop(dest->user);
+				}
 				dest->user = _pam_strdup(source->user);
 			} else {
 				reason = "source is NULL";
@@ -201,6 +228,9 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 			name = "PAM_USER_PROMPT";
 			if(source->prompt) {
 				copied = 1;
+				if(dest->prompt) {
+					_pam_drop(dest->prompt);
+				}
 				dest->prompt = _pam_strdup(source->prompt);
 			} else {
 				reason = "source is NULL";
@@ -237,6 +267,12 @@ _pam_stack_cleanup(pam_handle_t *pamh, void *data, int status)
 		stack_this->pamh->data = NULL;
 		_pam_drop(stack_this->pamh->pam_conversation);
 		_pam_drop(stack_this->pamh->service_name);
+		_pam_drop(stack_this->pamh->user);
+		_pam_drop(stack_this->pamh->authtok);
+		_pam_drop(stack_this->pamh->oldauthtok);
+		_pam_drop(stack_this->pamh->tty);
+		_pam_drop(stack_this->pamh->rhost);
+		_pam_drop(stack_this->pamh->ruser);
 		_pam_drop_env(stack_this->pamh);
 		_pam_drop(stack_this->pamh);
 		free(stack_this->service);
