@@ -205,18 +205,18 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 static void
 _pam_stack_cleanup(pam_handle_t *pamh, void *data, int status)
 {
-	struct stack_data *stack_this = (struct stack_data*) data, *next = NULL;
-	if(stack_this != NULL) {
+	struct stack_data *stack_this = (struct stack_data*) data, *next;
+	while(stack_this != NULL) {
 		if(stack_this->debug) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "freeing stack data for `%s' service",
 			       stack_this->service);
 			closelog();
 		}
-		next = stack_this->next;
 		/* Clean up and bug out.  Don't free the ITEMs because they're
 		 * shared by the parent's pamh.  Because of how setting items
 		 * works, we don't actually leak memory doing this (!). */
+		next = stack_this->next;
 		stack_this->pamh->data = NULL;
 		_pam_drop(stack_this->pamh->pam_conversation);
 		_pam_drop(stack_this->pamh->service_name);
@@ -224,6 +224,7 @@ _pam_stack_cleanup(pam_handle_t *pamh, void *data, int status)
 		_pam_drop(stack_this->pamh);
 		free(stack_this->service);
 		free(stack_this);
+		stack_this = next;
 	}
 }
 
@@ -336,10 +337,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 		}
 
 		memset(stack_this, 0, sizeof(struct stack_data));
-		stack_this->next = stack_data;
-		pam_set_data(pamh, STACK_DATA_NAME, stack_this, _pam_stack_cleanup);
-
-		stack_this->service = strdup(service);
+		stack_this->service = _pam_strdup(service);
 		stack_this->pamh = calloc(1, sizeof(pam_handle_t));
 
 		/* Create an environment for the child. */
@@ -377,6 +375,19 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 			closelog();
 			return PAM_SYSTEM_ERR;
 		}
+
+		/* Insert the data item at the end of the stack list, or make
+		 * it the head if we don't have one yet. */
+		if(stack_data == NULL) {
+			pam_set_data(pamh, STACK_DATA_NAME, stack_this,
+				     _pam_stack_cleanup);
+		} else {
+			while(stack_data->next != NULL) {
+				stack_data = stack_data->next;
+			}
+			stack_data->next = stack_this;
+		}
+
 	} else {
 		if(debug) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
