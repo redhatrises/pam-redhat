@@ -10,7 +10,8 @@ TITLE=pam_console
 
 LOCKDIR = /var/lock/console
 LOCKMODE = 755
-LDFLAGS +=  $(shell glib-config --libs)
+LIBS +=  $(shell glib-config --libs)
+LDFLAGS = $(LIBS)
 
 BINARY = pam_console_apply
 LOCAL_CONFILE = console.perms
