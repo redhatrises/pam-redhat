@@ -269,9 +269,10 @@ _pam_stack_cleanup(pam_handle_t *pamh, void *data, int status)
 		_pam_drop(stack_this->pamh->tty);
 		_pam_drop(stack_this->pamh->rhost);
 		_pam_drop(stack_this->pamh->ruser);
+		_pam_drop(stack_this->pamh->prompt);
 		_pam_drop_env(stack_this->pamh);
 		_pam_drop(stack_this->pamh);
-		free(stack_this->service);
+		_pam_drop(stack_this->service);
 		free(stack_this);
 		stack_this = next;
 	}
@@ -382,15 +383,13 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 
 		stack_this = malloc(sizeof(struct stack_data));
 		if(stack_this == NULL) {
+			_pam_drop(service);
 			return PAM_BUF_ERR;
 		}
 
 		memset(stack_this, 0, sizeof(struct stack_data));
-		stack_this->service = _pam_strdup(service);
-		if (stack_this->service == NULL) {
-			_pam_drop(stack_this);
-			return PAM_BUF_ERR;
-		}
+		stack_this->service = service;
+
 		stack_this->pamh = calloc(1, sizeof(pam_handle_t));
 		if (stack_this->pamh == NULL) {
 			_pam_drop(stack_this->service);
@@ -417,7 +416,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 		}
 
 		/* Set the service.  This loads the service modules. */
-		ret = pam_set_item(stack_this->pamh, PAM_SERVICE, service);
+		ret = pam_set_item(stack_this->pamh, PAM_SERVICE, stack_this->service);
 		if(ret != PAM_SUCCESS) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_ERR, "pam_set_item(PAM_SERVICE) returned %d (%s)",
@@ -467,6 +466,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 			       "`%s'", service);
 			closelog();
 		}
+		_pam_drop(service);
 	}
 	stack_this->debug = debug;
 
@@ -480,7 +480,9 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 			closelog();
 		}
 		pam_putenv(stack_this->pamh, env[i]);
+		_pam_drop(env[i]);
 	}
+	_pam_drop(env);
 
 	/* Copy named PAM items to the child. */
 	_pam_stack_copy(pamh, stack_this->pamh, PAM_AUTHTOK, debug ? "child" : NULL);
@@ -526,7 +528,9 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 			closelog();
 		}
 		pam_putenv(pamh, env[i]);
+		_pam_drop(env[i]);
 	}
+	_pam_drop(env);
 
 	/* Now the named data items. */
 	_pam_stack_copy(stack_this->pamh, pamh, PAM_AUTHTOK, debug ? "parent" : NULL);

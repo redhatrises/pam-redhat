@@ -14,3 +14,4 @@ without autoconf support.
 * pam_stack: Overwrite the conversation function too (tmraz)
 * pam_console: Don't check the ownership of terminal on logout - we don't
   have it on X crash (tmraz)
+* pam_stack: Fix memory leaks (tmraz)
