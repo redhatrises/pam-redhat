@@ -273,7 +273,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	char xauthpath[] = XAUTHBIN;
 	char *cookiefile = NULL, *xauthority = NULL,
 	     *cookie = NULL, *display = NULL, *tmp = NULL;
-	const char *user, *xauth = xauthpath;
+	const char *user, *xauth = xauthpath, *user_prompt;
 	struct passwd *tpwd, *rpwd;
 	int fd, i, debug = 0;
 	uid_t systemuser = 499, targetuser = 0, euid;
@@ -323,7 +323,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	/* Read the target user's name. */
-	if (pam_get_item(pamh, PAM_USER, (const void**)&user) != PAM_SUCCESS) {
+	user_prompt = "login: ";
+	libmisc_get_string_item(pamh, PAM_USER_PROMPT, &user_prompt);
+	if (pam_get_user(pamh, &user, user_prompt) != PAM_SUCCESS) {
 		syslog(LOG_ERR, "pam_xauth: error determining target "
 		       "user's name");
 		return PAM_SESSION_ERR;
