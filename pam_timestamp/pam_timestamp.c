@@ -537,21 +537,21 @@ main(int argc, char **argv)
 		retval = 4;
 	}
 
+	/* Sanity check the tty to make sure we should be checking
+	 * for timestamps which pertain to it. */
+	if (retval == 0) {
+		tty = check_tty(tty);
+		if (tty == NULL) {
+			fprintf(stderr, "invalid tty\n");
+			retval = 6;
+		}
+	}
+
 	do {
 		/* Sanity check the timestamp directory itself. */
 		if (retval == 0) {
 			if (check_dir_perms(TIMESTAMPDIR) != PAM_SUCCESS) {
 				retval = 5;
-			}
-		}
-
-		/* Sanity check the tty to make sure we should be checking
-		 * for timestamps which pertain to it. */
-		if (retval == 0) {
-			tty = check_tty(tty);
-			if (tty == NULL) {
-				fprintf(stderr, "invalid tty\n");
-				retval = 6;
 			}
 		}
 
