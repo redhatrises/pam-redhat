@@ -100,7 +100,7 @@ classlist:	OBRACKET string CBRACKET {
 		  if(!c) {
 		    g_log(G_LOG_DOMAIN, G_LOG_LEVEL_CRITICAL,
 			  "unknown class \"%s\" at line %d in %s\n",
-			  $2, lineno, filename);
+			  (const char *)$2, lineno, filename);
 		    _exit(1);
 		  }
 		  $$ = c;

@@ -4,6 +4,10 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.78-4: 
+
+* Merged fix for gcc4 compilation and config file parsing from dist
+
 0.78-3: Wed Jan 12 2005
 
 * Correct a bad merge in pam_console
