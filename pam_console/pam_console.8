@@ -31,6 +31,15 @@ console.  Then the race can start for the next user.  In practice, this
 is not a problem; the physical console is not generally in use by many
 people at the same time, and pam_console.so just tries to do the right
 thing in weird cases.
+
+When an application attempts to authenticate the user \fBand this user
+is already logged in at the console\fP, pam_console.so checks whether
+there is a file in /etc/security/console.apps/ directory with the same name
+as the application servicename, and if such a file exists, authentication
+succeeds. This way pam_console may be utilized to run some system
+applications (reboots, config tools) without root password,
+or to enter user password on the first system login only.
+
 .SH ARGUMENTS
 .IP debug
 turns on debugging
@@ -46,6 +55,25 @@ is used to map directories to device names.
 .\" .IP glob
 .\" \fBnot yet implemented\fP interpret strings as globs instead of
 .\" regexp expressions.
+.SH EXAMPLE
+\fB/etc/pam.d/some-system-tool\fP:
+.br
+auth sufficient pam_rootok.so
+.br
+auth required pam_console.so
+.br
+
+.br
+\fB/etc/pam.d/some-login-service\fP:
+.br
+auth sufficient pam_console.so
+.br
+auth required pam_unix.so
+.br
+session required pam_unix.so
+.br
+session optional pam_console.so
+.br
 .SH FILES
 \fI/var/run/console.lock\fP
 .br
@@ -54,6 +82,11 @@ is used to map directories to device names.
 \fI/etc/security/console.apps\fP
 .br
 \fI/etc/security/console.perms\fP
+.SH SECURITY NOTES
+When pam_console "auth" is used for login services which provide
+possibility of remote login, it is necessary to make sure the application
+correctly sets PAM_RHOST variable, or to deny remote logins completely.
+Currently, /bin/login (invoked from telnetd) and gdm is OK, others may be not.
 .SH "SEE ALSO"
 .BR console.perms (5)
 .br

@@ -278,15 +278,52 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
     D(("called."));
     _args_parse(argc, argv);
 
-    /* FIXME: this appears to be unnecessary, since I always see pam_rootok
-     * listed before this module -- remove if not explicitly required by the
-     * pam_console white paper */
-    if (getuid() == 0) return PAM_SUCCESS; /* root always trivially succeeds */
+    if (getuid() == 0) {
+      /* Obtain user name by pam_get_user() .
+       * We must make sure that the user sits on the local console
+       */
+	const char *user = NULL;
+	const char *host = NULL;
+	const char *user_prompt;
 
-    pwd = _pammodutil_getpwuid(pamh, getuid());
-    if (pwd == NULL) {
-	_pam_log(LOG_ERR, FALSE, "user with id %d not found", getuid());
-	return PAM_AUTH_ERR;
+	D(("invoked under root."));
+
+	ret = pam_get_item(pamh, PAM_RHOST, (const void **) &host);
+	if (ret == PAM_SUCCESS && host && *host) {
+	    _pam_log(LOG_ERR, TRUE,
+			"PAM_RHOST is set - not invoked from console.");
+	    return PAM_AUTH_ERR;
+	}
+
+	D(("Obtain user name."));
+	if (pam_get_item(pamh, PAM_USER_PROMPT, (const void **) &user_prompt)
+	    != PAM_SUCCESS) {
+	    user_prompt = "login: ";
+	}
+	ret = pam_get_user(pamh, &user, user_prompt);
+	if (ret != PAM_SUCCESS) {
+	    _pam_log(LOG_ERR, FALSE, "could not obtain user name");
+	    return ret;
+	}
+
+	pwd = _pammodutil_getpwnam(pamh, user);
+	if (pwd == NULL) {
+	    _pam_log(LOG_ERR, FALSE, "user '%s' unknown for this system", user);
+	    return PAM_AUTH_ERR;
+	}
+
+	if (pwd->pw_uid == 0) {
+	    _pam_log(LOG_ERR, TRUE, "user '%s' is not allowed to "
+				"authenticate by pam_console", pwd->pw_name);
+	    return PAM_AUTH_ERR;
+	}
+
+    } else {
+	pwd = _pammodutil_getpwuid(pamh, getuid());
+	if (pwd == NULL) {
+	    _pam_log(LOG_ERR, FALSE, "user with id %d not found", getuid());
+	    return PAM_AUTH_ERR;
+	}
     }
 
     lockfile = _do_malloc(strlen(consolerefs) + strlen(pwd->pw_name) + 2);
