@@ -216,12 +216,12 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		if ((now - st.st_mtime) < interval) {
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
 			       "only %ld seconds old, allowing access to %s "
-			       "for %ld", path, now - st.st_mtime,
+			       "for UID %ld", path, now - st.st_mtime,
 			       service, (long)getuid());
 			return PAM_SUCCESS;
 		} else {
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
-			       "too old, disallowing access to %s for %ld",
+			       "too old, disallowing access to %s for UID %ld",
 			       path, service, (long)getuid());
 			return PAM_AUTH_ERR;
 		}
