@@ -10,5 +10,7 @@ without autoconf support.
 * pam_localuser, pam_succeed_if, pam_xauth are no longer developed here
   - they were accepted to upstream Linux PAM repository
 * Applied fixes by Steve Grubb (tmraz)
-* pam_console: Changed the console.lock file to console/console.lock
-* pam_stack: Overwrite the conversation function too
+* pam_console: Changed the console.lock file to console/console.lock (tmraz)
+* pam_stack: Overwrite the conversation function too (tmraz)
+* pam_console: Don't check the ownership of terminal on logout - we don't
+  have it on X crash (tmraz)

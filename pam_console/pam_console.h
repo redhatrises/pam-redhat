@@ -6,7 +6,6 @@
 #define _PAM_CONSOLE_H
 #include <glib.h>
 #include <security/pam_modules.h>
-#include <regex.h>
 #include "chmod.h"
 
 typedef struct class_s class;
@@ -27,13 +26,8 @@ struct config_s {
 
 /* pam_console.c */
 
-void _pam_log(int err, int debug_p, const char *format, ...);
-void *_do_malloc(size_t req);
-
-/* config.l */
-
-extern int lineno;
-extern char *filename;
+static void
+_pam_log(int err, int debug_p, const char *format, ...);
 
 /* config.y */
 
@@ -41,15 +35,12 @@ STATIC void
 parse_file(char *name);
 
 STATIC int
-check_console_name (const char *consolename, int allow_nonroot);
+check_console_name (const char *consolename, int allow_nonroot, int on_set);
 
 STATIC int
 set_permissions(pam_handle_t *pamh, const char *consolename, const char *username, int allow_nonroot);
 
 STATIC int
 reset_permissions(pam_handle_t *pamh, const char *consolename, int allow_nonroot);
-
-/* regerr.c */
-void do_regerror(int errcode, const regex_t *preg);
 
 #endif /* _PAM_CONSOLE_H */

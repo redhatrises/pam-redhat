@@ -370,7 +370,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (!configfileparsed) { parse_file(consoleperms); configfileparsed = 1; }
 
     /* return success quietly if not a terminal login */
-    if (!check_console_name(tty, allow_nonroot_tty)) return PAM_SUCCESS;
+    if (!check_console_name(tty, allow_nonroot_tty, TRUE)) return PAM_SUCCESS;
 
     if (!lock_console(username)) got_console = 1;
 
@@ -433,7 +433,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (!configfileparsed) { parse_file(consoleperms); configfileparsed = 1; }
 
     /* return success quietly if not a terminal login */
-    if (!check_console_name(tty, allow_nonroot_tty)) return PAM_SUCCESS;
+    if (!check_console_name(tty, allow_nonroot_tty, FALSE)) return PAM_SUCCESS;
 
     lockfile = _do_malloc(strlen(consolerefs) + strlen(username) + 2);
     sprintf(lockfile, "%s%s", consolerefs, username); /* trusted data */
