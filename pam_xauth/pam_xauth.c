@@ -611,7 +611,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
     int ret = PAM_SESSION_ERR;
     int willret = 0;
-    char *key, *cookie_start = NULL, *cookie_end, *cookie;
+    char *key, *cookie_start = NULL, *cookie_end = NULL, *cookie;
     int mask;
 
     mask = umask(0077);
