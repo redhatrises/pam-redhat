@@ -97,6 +97,7 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "user name not specified yet");
 		closelog();
+		fclose(fp);
 		return PAM_SYSTEM_ERR;
 	}
 
