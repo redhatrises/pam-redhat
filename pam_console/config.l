@@ -1,6 +1,6 @@
 %option noyywrap
 %{
-/* Copyright 1999 Red Hat Software, Inc.
+/* Copyright 1999,2000 Red Hat, Inc.
  * This software may be used under the terms of the GNU General Public
  * License, available in the file COPYING accompanying this file
  */

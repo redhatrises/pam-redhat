@@ -1,5 +1,5 @@
 %{
-/* Copyright 1999 Red Hat Software, Inc.
+/* Copyright 1999,2000 Red Hat, Inc.
  * This software may be used under the terms of the GNU General Public
  * License, available in the file COPYING accompanying this file
  */
@@ -8,9 +8,11 @@
 #include <errno.h>
 #include <glib.h>
 #include <grp.h>
+#include <limits.h>
 #include <regex.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 static GHashTable *namespace = NULL;
 static GSList *configList = NULL;
@@ -163,8 +165,51 @@ check_console_name (char *consolename) {
     GSList *this_list;
     class *c;
     int found = 0;
+    int statted = 0;
+    struct stat st;
+    char full_path[PATH_MAX];
 
     _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "check console %s", consolename);
+    memset(&st, 0, sizeof(st));
+
+    if (lstat(consolename, &st) != -1) {
+        statted = 1;
+    }
+    if (!statted) {
+        strcpy(full_path, "/dev/");
+        strncat(full_path, consolename, sizeof(full_path) - 1 - strlen(full_path));
+        if (lstat(full_path, &st) != -1) {
+           statted = 1;
+        }
+    }
+    if (!statted && (consolename[0] == ':')) {
+        strcpy(full_path, "/tmp/.X11-unix/X");
+        strncat(full_path, consolename + 1,
+                sizeof(full_path) - 1 - strlen(full_path));
+        if (lstat(full_path, &st) != -1) {
+           statted = 1;
+        }
+    }
+
+    if (statted) {
+        int ok = 0;
+        if (S_ISCHR(st.st_mode)) {
+            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "console %s is a character device", consolename);
+            ok = 1;
+        }
+        if (S_ISSOCK(st.st_mode) && (st.st_uid == 0)) {
+            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "console %s is a root-owned socket", consolename);
+            ok = 1;
+        }
+        if (!ok) {
+            _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, 1, "%s is not a valid console", consolename);
+            return 0;
+        }
+    } else {
+        _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, 1, "can't find device for %s", consolename);
+        return 0;
+    }
+
     if (consoleNameCache != consolename) {
 	consoleNameCache = consolename;
 	if (consoleHash) g_hash_table_destroy(consoleHash);
@@ -277,7 +322,7 @@ do_yyerror(const char *format, ...) {
   va_list ap;
 
   va_start(ap, format);
-  openlog("pam_console", LOG_CONS|LOG_PID, LOG_AUTH);
+  openlog("pam_console", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
   vsyslog(LOG_PID|LOG_AUTHPRIV|LOG_ERR, format, ap);
   va_end(ap);
 }

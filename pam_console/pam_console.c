@@ -20,7 +20,7 @@
  * <username> has console access.
  *
  * A system startup script should remove /var/lock/console.lock
- * and /var/lock/console/*
+ * and everything in /var/lock/console/
  */
 
 #include <errno.h>
@@ -66,7 +66,7 @@ _pam_log(int err, int debug_p, const char *format, ...)
     if (debug_p && !debug) return;
 
     va_start(args, format);
-    openlog("pam_console", LOG_CONS|LOG_PID, LOG_AUTH);
+    openlog("pam_console", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
     vsyslog(err, format, args);
     va_end(args);
     closelog();

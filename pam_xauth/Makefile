@@ -14,7 +14,7 @@ LIBOBJD = $(addprefix dynamic/,$(LIBOBJ))
 #LIBOBJS = $(addprefix static/,$(LIBOBJ))
 MANMODE = 644
 MAN8 = pam_xauth.8
-MAN8DIR = /usr/man/man8
+MAN8DIR = $(MANDIR)/man8
 
 dynamic/%.o : %.c
 	$(CC) $(CFLAGS) $(DYNAMIC) $(CPPFLAGS) $(TARGET_ARCH) -c $< -o $@
