@@ -338,7 +338,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	const char *left, *right, *qual;
 
 	/* Get the user prompt. */
-	ret = pam_get_item(pamh, PAM_USER_PROMPT, (const void**) &prompt);
+	ret = libmisc_get_string_item(pamh, PAM_USER_PROMPT, &prompt);
 	if ((ret != PAM_SUCCESS) || (prompt == NULL) || (strlen(prompt) == 0)) {
 		prompt = "login: ";
 	}

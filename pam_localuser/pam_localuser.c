@@ -34,6 +34,7 @@
  */
 
 #include "../config.h"
+#include "../lib/libmisc.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -62,7 +63,7 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 	int debug = 0;
 	char filename[PATH_MAX] = "/etc/passwd";
 	char line[LINE_MAX], name[LINE_MAX];
-	const char* user;
+	const char *user, *user_prompt;
 
 	/* process arguments */
 	for(i = 0; i < argc; i++) {
@@ -93,7 +94,9 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 		return PAM_SYSTEM_ERR;
 	}
 
-	if(pam_get_item(pamh, PAM_USER, (const void**) &user) != PAM_SUCCESS) {
+	user_prompt = "login: ";
+	libmisc_get_string_item(pamh, PAM_USER_PROMPT, &user_prompt);
+	if(pam_get_user(pamh, &user, user_prompt) != PAM_SUCCESS) {
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "user name not specified yet");
 		closelog();
