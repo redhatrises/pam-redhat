@@ -23,7 +23,7 @@ CONFDIRMODE = 755
 MANMODE = 644
 LOCKMODE = 755
 CFLAGS = $(RPM_OPT_FLAGS) -DPAM_READ_BOTH_CONFS -D_GNU_SOURCE -DLINUX_PAM \
-	$(shell glib-config --cflags) \
+	-I../../libpam/include $(shell glib-config --cflags) \
 	-Wall -Wpointer-arith -Wcast-qual -Wcast-align\
 	-Wtraditional -Wstrict-prototypes -Wmissing-prototypes \
 	-Wnested-externs -Winline -Wshadow \
