@@ -38,6 +38,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * $Log$
+ * Revision 1.27  2001/11/21 19:38:33  nalin
+ * free handlers at clean-up time
+ *
  * Revision 1.26  2001/11/21 17:54:59  nalin
  * fix some memory leaks (reported by Fernando Trias)
  *
@@ -265,6 +268,7 @@ _pam_stack_cleanup(pam_handle_t *pamh, void *data, int status)
 		 * works, we don't actually leak memory doing this (!). */
 		next = stack_this->next;
 		stack_this->pamh->data = NULL;
+		_pam_free_handlers(stack_this->pamh);
 		_pam_drop(stack_this->pamh->pam_conversation);
 		_pam_drop(stack_this->pamh->service_name);
 		_pam_drop(stack_this->pamh->user);
