@@ -108,13 +108,6 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		return PAM_SYSTEM_ERR;
 	}
 
-	/* Sign-on message. */
-	if(debug) {
-		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_DEBUG, "called from \"%s\"", defined_items[i].item);
-		closelog();
-	}
-
 	/* Save the main service name. */
 	ret = pam_get_item(pamh, PAM_SERVICE, &defined_items[i].item);
 	if(ret != PAM_SUCCESS) {
@@ -138,6 +131,15 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		}
 	}
 
+	/* Sign-on message. */
+	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
+		if(defined_items[i].num == PAM_SERVICE) break;
+	}
+	if(debug) {
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "called from \"%s\"", defined_items[i].item);
+		closelog();
+	}
 	if(service == NULL) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "required argument \"service\" not given");
@@ -313,13 +315,13 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	if(service != NULL) {
 		_pam_drop(service);
 	}
-	_pam_drop(sub_pamh);
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "returning %d (%s)", ret,
 		       pam_strerror(sub_pamh, ret));
 		closelog();
 	}
+	_pam_drop(sub_pamh);
 
 	return ret;
 }
