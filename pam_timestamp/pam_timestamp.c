@@ -559,7 +559,6 @@ main(int argc, char **argv)
 			if (kflag) {
 				/* Remove the timestamp. */
 				if (lstat(path, &st) != -1) {
-					unlink(path);
 					retval = unlink(path);
 				}
 			} else {
