@@ -7,8 +7,9 @@ UID (even root).  Additionally, sudo adds the concept of timestamp files,
 which will allow a user to use commands via sudo, without needing to reenter
 her password, within a short period after a previous command was run.
 
-The authentication service function checks for the existence of the timestamp
-file, and if it exists and is less than timestamp_timeout seconds old, succeeds.
+The authentication service function checks for the existence and validity of
+the timestamp file, and if a valid timestamp file exists which is less than
+timestamp_timeout seconds old, succeeds.
 
 The session management service creates or updates the timestamp file.  This
 means that in order for a service to use this module, it must perform PAM
