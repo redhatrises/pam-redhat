@@ -1,0 +1,14 @@
+VERSION=0.75
+RELEASE=15
+CVSTAG=pam-redhat-`echo $(VERSION) | sed s,\.,-,g`-$(RELEASE)
+
+tag:
+	cvs tag -cFR $(CVSTAG) . 
+
+archive: tag
+	@rm -f pam-redhat-$(VERSION).tar.gz 
+	@rm -rf /tmp/pam-$(VERSION) 
+	cd /tmp; CVSROOT=$(CVS_ROOT) cvs export -r$(CVSTAG) -d pam-$(VERSION) pam 
+	@dir=$$PWD; cd /tmp; tar czf $$dir/pam-redhat-$(VERSION)-$(RELEASE).tar.gz pam-$(VERSION) 
+	@rm -rf /tmp/pam-$(VERSION) 
+	@echo "The archive is in pam-redhat-$(VERSION)-$(RELEASE).tar.gz" 
