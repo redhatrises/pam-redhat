@@ -3,17 +3,15 @@
 # Linux-PAM. You should not modify this Makefile (unless you know
 # what you are doing!).
 #
-# Created by Michael K. Johnson <johnsonm@redhat.com> 1999/04/10
-#
 
-TITLE=pam_xauth
+TITLE=pam_localuser
 
 LIBSRC = $(TITLE).c
 LIBOBJ = $(TITLE).o
 LIBOBJD = $(addprefix dynamic/,$(LIBOBJ))
 #LIBOBJS = $(addprefix static/,$(LIBOBJ))
 MANMODE = 644
-MAN8 = pam_xauth.8
+MAN8 = pam_localuser.8
 MAN8DIR = $(MANDIR)/man8
 
 dynamic/%.o : %.c
@@ -86,4 +84,3 @@ extraclean: clean
 
 .c.o:	
 	$(CC) $(CFLAGS) -c $<
-
