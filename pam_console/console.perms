@@ -15,7 +15,7 @@
 # man 5 console.perms
 
 # file classes -- these are regular expressions
-<console>=tty[0-9][0-9]* vc/[0-9][0-9] :[0-9]\.[0-9] :[0-9]
+<console>=tty[0-9][0-9]* vc/[0-9][0-9]* :[0-9]\.[0-9] :[0-9]
 <xconsole>=:[0-9]\.[0-9] :[0-9]
 
 # device classes -- these are shell-style globs
