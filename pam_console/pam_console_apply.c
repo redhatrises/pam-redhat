@@ -19,7 +19,7 @@
 
 #define CAST_ME_HARDER (const void**)
 
-static char consolelock[PATH_MAX] = "/var/lock/console.lock";
+static char consolelock[PATH_MAX] = LOCKDIR ".lock";
 static char consoleperms[PATH_MAX] = "/etc/security/console.perms";
 static int debug = 0;
 

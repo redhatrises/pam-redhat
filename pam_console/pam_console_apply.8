@@ -8,7 +8,7 @@ pam_console_apply \- set or revoke permissions for users at the system console
 \fBpam_console_apply\fP sets or resets permissions on devices in the same
 manner as pam_console.
 .br
-If \fI/var/lock/console.lock\fP exists, \fBpam_console_apply\fP will grant
+If \fI/var/run/console.lock\fP exists, \fBpam_console_apply\fP will grant
 permissions to the user listed therein.  If the lock file does not exist,
 permissions are reset to those listed in \fI/etc/security/console.perms\fP,
 which should be configured to set permissions on devices so that \fBroot\fP
@@ -16,10 +16,10 @@ owns them.
 .SH ARGUMENTS
 .IP -r
 Signals \fBpam_console_apply\fP to reset permissions.  The default is to set
-permissions so that the user listed in \fI/var/lock/console.lock\fP has access
+permissions so that the user listed in \fI/var/run/console.lock\fP has access
 to the devices, and to reset permissions if no such file exists.
 .SH FILES
-\fI/var/lock/console.lock\fP
+\fI/var/run/console.lock\fP
 .br
 \fI/etc/security/console.perms\fP
 .SH "SEE ALSO"
