@@ -2,7 +2,7 @@
  * A module for Linux-PAM that will divert to another file and use configuration
  * information from it, percolating the result code back up.  Recursion is fun.
  *
- * Copyright (c) 2000,2001 Red Hat, Inc.
+ * Copyright (c) 2000,2001,2004 Red Hat, Inc.
  * Written by Nalin Dahyabhai <nalin@redhat.com>
  * Portions also Copyright (c) 2000 Dmitry V. Levin
  *
@@ -38,6 +38,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * $Log$
+ * Revision 1.28.2.1  2004/02/03 20:28:46  nalin
+ * - backport HAVE_LIBLAUS changes from HEAD
+ *
  * Revision 1.28  2001/11/21 19:38:57  nalin
  * free handlers at clean-up time
  *
@@ -488,6 +491,9 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 		closelog();
 	}
 	stack_this->pamh->data = pamh->data;
+#if HAVE_LIBLAUS
+	stack_this->laus_state = pamh->laus_state;
+#endif
 
 	/* Now call the substack. */
 	if(debug) {
@@ -533,6 +539,9 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 		syslog(LOG_DEBUG, "passing data back");
 		closelog();
 	}
+#if HAVE_LIBLAUS
+	pamh->laus_state = stack_this->laus_state;
+#endif
 	pamh->data = stack_this->pamh->data;
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
