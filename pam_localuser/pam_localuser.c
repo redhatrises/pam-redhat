@@ -67,7 +67,7 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 
 	/* scan the file */
 	ret = PAM_PERM_DENIED;
-	snprintf(name, "%s:", user);
+	snprintf(name, sizeof(name), "%s:", user);
 	i = strlen(name);
 	while(fgets(line, sizeof(line), fp) != NULL) {
 		if(debug) {
