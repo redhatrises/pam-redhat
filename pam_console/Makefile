@@ -18,7 +18,7 @@ INSTALLED_CONFILE = $(SCONFIGD)/console.perms
 MAN5 = console.apps.5 console.perms.5
 MAN8 = pam_console.8
 
-CFLAGS += $(shell glib-config --cflags)
+CFLAGS += $(shell glib-config --cflags) -D_GNU_SOURCE
 
 FLEX_OPTS = -Cr
 BISON_OPTS = -d

@@ -112,8 +112,8 @@ savedir (const char *dir, unsigned name_size)
       closedir (dirp);
       return NULL;
     }
-  memset(namep, '\0', name_size);
   namep = name_space;
+  memset(namep, '\0', name_size);
 
   while ((dp = readdir (dirp)) != NULL)
     {
