@@ -1,0 +1,3 @@
+2004-06-14: revise to build most modules outside of the Linux-PAM build
+	directory.  The lone exception is pam_stack, which requires a private
+	header which wouldn't be available otherwise.
