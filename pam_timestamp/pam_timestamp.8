@@ -1,0 +1,44 @@
+.TH pam_timestamp 8 2002/02/07 "Red Hat Linux" "System Administrator's Manual"
+.SH NAME
+pam_timestamp \- authenticate using cached successful authentication attempts
+.SH SYNOPSIS
+.B auth sufficient /lib/security/pam_timestamp.so
+.br
+.B session optional /lib/security/pam_timestamp.so
+.br
+
+.SH DESCRIPTION
+In a nutshell, pam_timestamp caches successful authentication attempts, and
+allows you to use a recent successful attempt as the basis for authentication.
+
+When an application opens a session using pam_timestamp, a timestamp file is
+created in the \fItimestampdir\fP directory for the user.  When an application
+attempts to authenticate the user, a pam_timestamp will treat a sufficiently-
+recent timestamp file as grounds for succeeding.
+
+.SH ARGUMENTS
+.IP debug
+turns on debugging via \fBsyslog(3)\fR.
+.IP timestampdir=\fIname\fP
+tells pam_timestamp.so where to place and search for timestamp files.  This
+should match the directory configured for sudo(1) in the sudoers(5) file.
+.IP timestamp_timeout=\fInumber\fP
+tells pam_timestamp.so how long it should treat timestamp files as valid
+after their last modification date.  This should match the value configured
+for sudo(1) in the sudoers(5) file.
+
+.SH EXAMPLE
+\fB/etc/pam.d/some-config-tool\fP:
+.br
+auth sufficient /lib/security/pam_timestamp.so
+auth required   /lib/security/pam_unix.so
+.br
+session optional /lib/security/pam_timestamp.so
+session required /lib/security/pam_permit.so
+.br
+
+.SH BUGS
+Let's hope not, but if you find any, please email the author.  
+
+.SH AUTHOR
+Nalin Dahyabhai <nalin@redhat.com>

@@ -1,0 +1,30 @@
+This is pam_timestamp, a module for implementing sudo-style authentication
+timestamps via PAM.
+
+Background:  sudo [1] provides a means for allowing certain users (by name,
+or by group membership) to execute a fixed set of commands under a different
+UID (even root).  Additionally, sudo adds the concept of timestamp files,
+which will allow a user to use commands via sudo, without needing to reenter
+her password, within a short period after a previous command was run.
+
+The authentication service function checks for the existence of the timestamp
+file, and if it exists and is less than timestamp_timeout seconds old, succeeds.
+
+The session management service creates or updates the timestamp file.  This
+means that in order for a service to use this module, it must perform PAM
+session management.
+
+The module takes these arguments:
+	debug			Log debug messages (with priority DEBUG) to
+				syslog.
+	timestampdir		The directory in which timestamp files will be
+				stored and checked for.  The default setting is
+				"/var/run/sudo".
+	timestamp_timeout	The number of seconds which can pass after its
+				creation during which a timestamp is file is
+				considered to be valid.  The default setting,
+				which mirrors sudo's, is 600 (five minutes).
+
+Nalin Dahyabhai <nalin@redhat.com>
+
+[1] http://www.courtesan.com/sudo/
