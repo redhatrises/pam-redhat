@@ -1,0 +1,44 @@
+.\" Copyright 2004 Red Hat, Inc.
+.\" Written by Nalin Dahyabhai <nalin@redhat.com>
+.TH pam_saslauthd 8 2004/6/18 "Red Hat Linux" "System Administrator's Manual"
+
+.SH NAME
+pam_saslauthd \- authentication using saslauthd
+
+.SH SYNOPSIS
+.B auth sufficient pam_saslauthd.so [service=foo] [realm=example.com]
+
+.SH DESCRIPTION
+pam_saslauthd.so is designed to make use of the system-wide saslauthd service
+for performing password-based authentication.
+
+.SH ARGUMENTS
+.IP use_first_pass
+Use an authentication token which was saved by a previously-called module
+as the password.
+.IP try_first_pass
+Use an authentication token which was saved by a previously-called module
+as the password, and if the authentication attempt fails, prompt for a
+password and try again.
+.IP service=\fIservicename\fP
+Use \fIservicename\fP in the authentication request which is sent to
+\fIsaslauthd\fP.  By default, the PAM service name is used.  This will
+be sufficient unless saslauthd is configured to use PAM, which would
+otherwise cause it to eventually call this module.
+.IP realm=\fIrealm\fP
+Use \fIrealm\fP in the authentication request which is sent to
+\fIsaslauthd\fP.  By default, the default realm is used.
+.IP socket_path=\fIpath\fP
+Connect to \fIsaslauthd\fP using the socket located at \fIpath\fP instead
+of the default location (\fB/var/run/saslauthd/mux\fP).
+.IP protocol_version=[\fI1\fP|\fI2\fP]
+Format the authentication request for a specific version of saslauthd.
+Versions 1 and 2 of saslauthd use incompatible protocols, and this option
+can be used to override the default setting of \fB2\fP.
+
+.SH BUGS
+Let's hope not, but if you find any, please report them via the "Bug Track"
+link at http://bugzilla.redhat.com/bugzilla/
+
+.SH AUTHOR
+Nalin Dahyabhai <nalin@redhat.com>
