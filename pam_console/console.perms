@@ -24,7 +24,7 @@
 <sound>=/dev/dsp* /dev/audio* /dev/midi* \
 	/dev/mixer* /dev/sequencer \
 	/dev/sound/*
-<cdrom>=/dev/cdrom* /dev/cdwriter* /mnt/cdrom*
+<cdrom>=/dev/cdrom* /dev/cdroms/* /dev/cdwriter* /mnt/cdrom*
 <pilot>=/dev/pilot
 <jaz>=/dev/jaz /mnt/jaz*
 <zip>=/dev/zip /mnt/pocketzip* /mnt/zip*
