@@ -23,9 +23,8 @@ MANMODE = 644
 LOCKMODE = 755
 CFLAGS = $(RPM_OPT_FLAGS) -DPAM_READ_BOTH_CONFS -D_GNU_SOURCE -DLINUX_PAM \
 	-I../../libpam/include -Wall -Wpointer-arith -Wcast-qual -Wcast-align\
-	-Wtraditional -Wstrict-prototypes -Wmissing-prototypes \
-	-Wnested-externs -Winline -Wshadow \
-	-fPIC -Dlinux
+	-Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline \
+	-Wshadow -fPIC -Dlinux
 DYNAMIC = -DPAM_DYNAMIC
 MAN8 = pam_stack.8
 MAN8DIR = $(MANDIR)/man8

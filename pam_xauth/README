@@ -1,17 +1,26 @@
-pam_localuser:
-	Succeeds iff the PAM_USER is listed in /etc/passwd.  This seems to be a
-	common policy need (allowing only a subset of network-wide users, and
-	any locally-defined users, to access services).  Simpler than using
-	awk to generate a file for use with pam_listfile (-F: '{print $1}'),
-	I guess.
+pam_xauth:
+	Forward xauth cookies from user to user, normally used by su, sudo, or
+	userhelper.
+
+ RECOGNIZED ARGUMENTS:
+        debug		write debugging messages to syslog
+	logpub		log all messages INSECURELY for ease of debugging
+	systemuser=	highest user id assigned to system users, defaults
+			to 499
+	xauthpath=	the path to the xauth program, by default
+			/usr/X11R6/bin/xauth
 
 RECOGNIZED ARGUMENTS:
 	debug		write debugging messages to syslog
-	passwd=FILE	scan FILE instead of /etc/passwd
+	logpub		log all messages INSECURELY for ease of debugging
+	systemuser=	highest user id assigned to system users, defaults
+			to 499
+	xauthpath=	the path to the xauth program, by default
+			/usr/X11R6/bin/xauth
 
 MODULE SERVICES PROVIDED:
-	auth,account	scan the FILE (/etc/passwd by default) and return
-			a success code if an entry is found for the user
+	sess            open session copies xauth cookie to new user
+			close session deletes copied xauth cookie
 
 AUTHOR:
-	Nalin Dahyabhai <nalin@redhat.com>
+	Michael K. Johnson <johnsonm@redhat.com>

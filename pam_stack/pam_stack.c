@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2000 Red Hat, Inc.
  * Written by Nalin Dahyabhai <nalin@redhat.com>
+ * Portions also Copyright (c) 2000 Dmitry V. Levin
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -32,25 +33,6 @@
 #include <sys/syslog.h>
 #include <stdlib.h>
 #include <string.h>
-
-static struct {
-	int num;
-	const char *name;
-	const void *item;
-} defined_items[] = {
-	{PAM_SERVICE, "PAM_SERVICE", NULL},
-	{PAM_USER, "PAM_USER", NULL},
-	{PAM_TTY, "PAM_TTY", NULL},
-	{PAM_RHOST, "PAM_RHOST", NULL},
-	{PAM_CONV, "PAM_CONV", NULL},
-
-	{PAM_RUSER, "PAM_RUSER", NULL},
-	{PAM_USER_PROMPT, "PAM_USER_PROMPT", NULL},
-	{PAM_FAIL_DELAY, "PAM_FAIL_DELAY", NULL},
-
-	{PAM_AUTHTOK, "PAM_AUTHTOK", NULL},
-	{PAM_OLDAUTHTOK, "PAM_OLDAUTHTOK", NULL},
-};
 
 static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			       int argc, const char **argv,
@@ -97,12 +79,34 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			       int which_stack)
 {
 	char **env = NULL, *service = NULL;
+	const char **parent_service = NULL;
 	pam_handle_t *sub_pamh = NULL;
 	int debug = 0, i = 0, ret = PAM_SUCCESS, final_ret = PAM_SUCCESS;
+	struct {
+		int num;
+		const char *name;
+		const void *item;
+	} defined_items[] = {
+		{PAM_SERVICE, "PAM_SERVICE", NULL},
+		{PAM_USER, "PAM_USER", NULL},
+		{PAM_TTY, "PAM_TTY", NULL},
+		{PAM_RHOST, "PAM_RHOST", NULL},
+		{PAM_CONV, "PAM_CONV", NULL},
+
+		{PAM_RUSER, "PAM_RUSER", NULL},
+		{PAM_USER_PROMPT, "PAM_USER_PROMPT", NULL},
+		{PAM_FAIL_DELAY, "PAM_FAIL_DELAY", NULL},
+
+		{PAM_AUTHTOK, "PAM_AUTHTOK", NULL},
+		{PAM_OLDAUTHTOK, "PAM_OLDAUTHTOK", NULL},
+	};
 
 	/* Figure out where to save the main service name. */
 	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
-		if(defined_items[i].num == PAM_SERVICE) break;
+		if(defined_items[i].num == PAM_SERVICE) {
+			parent_service = (const char**) &defined_items[i].item;
+			break;
+		}
 	}
 	if(i >= sizeof(defined_items) / sizeof(defined_items[0])) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
@@ -135,12 +139,11 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	}
 
 	/* Sign-on message. */
-	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
-		if(defined_items[i].num == PAM_SERVICE) break;
-	}
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_DEBUG, "called from \"%s\"", defined_items[i].item);
+		syslog(LOG_DEBUG, "called from \"%s\"",
+		       parent_service && *parent_service ?
+		       *parent_service : "unknown service");
 		closelog();
 	}
 	if(service == NULL) {
@@ -237,12 +240,27 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		}
 		pam_putenv(sub_pamh, env[i]);
 	}
+	if(pamh->fail_delay.set) {
+		sub_pamh->fail_delay = pamh->fail_delay;
+		if(debug) {
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_DEBUG, "passing delay (%u) down",
+			       sub_pamh->fail_delay.delay );
+			closelog();
+		}
+	}
+
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "passing data to child");
 		closelog();
 	}
 	sub_pamh->data = pamh->data;
+
+	/* This isn't exactly Correct, but it does seem to work without getting
+	 * us into infinite recursion like using set_item() would. */
+	if(parent_service && *parent_service)
+		sub_pamh->service_name = *parent_service;
 
 	/* Now call the substack. */
 	if(debug) {
@@ -319,6 +337,20 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	if(service != NULL) {
 		_pam_drop(service);
 	}
+
+	if(sub_pamh->fail_delay.set) {
+		if(debug) {
+			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_DEBUG, "passing delay (%u) back",
+			       sub_pamh->fail_delay.delay );
+			closelog();
+		}
+		if(pamh->fail_delay.set)
+			pam_fail_delay(pamh, sub_pamh->fail_delay.delay);
+		else
+			pamh->fail_delay = sub_pamh->fail_delay;
+	}
+
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "returning %d (%s)", final_ret,
