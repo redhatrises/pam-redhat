@@ -39,40 +39,159 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			       int argc, const char **argv,
 			       int which_stack);
 
-PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
-				   int argc, const char **argv)
+PAM_EXTERN int
+pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	return _pam_stack_dispatch(pamh, flags, argc, argv, PAM_AUTHENTICATE);
 }
 
-PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags,
-			      int argc, const char **argv)
+PAM_EXTERN int
+pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	return _pam_stack_dispatch(pamh, flags, argc, argv, PAM_SETCRED);
 }
 
-PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
-				   int argc, const char **argv)
+PAM_EXTERN int
+pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	return _pam_stack_dispatch(pamh, flags, argc, argv, PAM_OPEN_SESSION);
 }
 
-PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh, int flags,
-				    int argc, const char **argv)
+PAM_EXTERN int
+pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	return _pam_stack_dispatch(pamh, flags, argc, argv, PAM_CLOSE_SESSION);
 }
 
-PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags,
-				   int argc, const char **argv)
+PAM_EXTERN int
+pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	return _pam_stack_dispatch(pamh, flags, argc, argv, PAM_ACCOUNT);
 }
 
-PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags,
-				int argc, const char **argv)
+PAM_EXTERN int
+pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	return _pam_stack_dispatch(pamh, flags, argc, argv, PAM_CHAUTHTOK);
+}
+
+/* Current libpam now distinguishes between modules and applications, so the
+   neat behavior we depended on is gone.  So we have to this the messy way.
+   What's amazing is that this simplifies things due to the lack of a need to
+   check for error return codes. */
+static void
+_pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
+		const char *recipient)
+{
+	const char *name = NULL;			/* name of the item */
+	int copied = 0;					/* was it copied */
+	const char *reason = "(no reason)";		/* if not copied, why */
+	switch(item) {
+		case PAM_AUTHTOK:
+			name = "PAM_AUTHTOK";
+			if(source->authtok) {
+				copied = 1;
+				dest->authtok = _pam_strdup(source->authtok);
+			} else {
+				reason = "source is NULL";
+			}
+			break;
+		case PAM_CONV:
+			name = "PAM_CONV";
+			if(source->pam_conversation && !dest->pam_conversation) {
+				copied = 1;
+				dest->pam_conversation =
+					source->pam_conversation;
+			} else {
+				if(!source->pam_conversation)
+					reason = "source not NULL";
+				if(dest->pam_conversation)
+					reason = "destination already set";
+			}
+			break;
+		case PAM_FAIL_DELAY:
+			name = "PAM_FAIL_DELAY";
+			if(source->fail_delay.set) {
+				copied = 1;
+				dest->fail_delay = source->fail_delay;
+			} else {
+				reason = "source not set";
+			}
+			break;
+		case PAM_OLDAUTHTOK:
+			name = "PAM_OLDAUTHTOK";
+			if(source->oldauthtok) {
+				copied = 1;
+				dest->oldauthtok = _pam_strdup(source->oldauthtok);
+			} else {
+				reason = "source is NULL";
+			}
+			break;
+		case PAM_RHOST:
+			name = "PAM_RHOST";
+			if(source->rhost) {
+				copied = 1;
+				dest->rhost = _pam_strdup(source->rhost);
+			} else {
+				reason = "source is NULL";
+			}
+			break;
+		case PAM_RUSER:
+			name = "PAM_RUSER";
+			if(source->ruser) {
+				copied = 1;
+				dest->ruser = _pam_strdup(source->ruser);
+			} else {
+				reason = "source is NULL";
+			}
+			break;
+		case PAM_SERVICE:
+			name = "PAM_SERVICE";
+			if(source->service_name) {
+				copied = 1;
+				dest->service_name = _pam_strdup(source->service_name);
+			} else {
+				reason = "source is NULL";
+			}
+			break;
+		case PAM_TTY:
+			name = "PAM_TTY";
+			if(source->tty) {
+				copied = 1;
+				dest->tty = _pam_strdup(source->tty);
+			} else {
+				reason = "source is NULL";
+			}
+			break;
+		case PAM_USER:
+			name = "PAM_USER";
+			if(source->user) {
+				copied = 1;
+				dest->user = _pam_strdup(source->user);
+			} else {
+				reason = "source is NULL";
+			}
+			break;
+		case PAM_USER_PROMPT:
+			name = "PAM_USER_PROMPT";
+			if(source->prompt) {
+				copied = 1;
+				dest->prompt = _pam_strdup(source->prompt);
+			} else {
+				reason = "source is NULL";
+			}
+			break;
+	}
+	if(recipient) {
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		if(copied) {
+			syslog(LOG_DEBUG, "passing %s to %s", name, recipient);
+		} else {
+			syslog(LOG_DEBUG, "NOT passing %s to %s: %s", name,
+			       recipient, reason);
+		}
+		closelog();
+	}
 }
 
 static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
@@ -80,44 +199,12 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			       int which_stack)
 {
 	char **env = NULL, *service = NULL;
-	const char **parent_service = NULL;
+	const char *parent_service = NULL;
 	pam_handle_t *sub_pamh = NULL;
 	int debug = 0, i = 0, ret = PAM_SUCCESS, final_ret = PAM_SUCCESS;
-	struct {
-		int num;
-		const char *name;
-		const void *item;
-	} defined_items[] = {
-		{PAM_SERVICE, "PAM_SERVICE", NULL},
-		{PAM_USER, "PAM_USER", NULL},
-		{PAM_TTY, "PAM_TTY", NULL},
-		{PAM_RHOST, "PAM_RHOST", NULL},
-		{PAM_CONV, "PAM_CONV", NULL},
-
-		{PAM_RUSER, "PAM_RUSER", NULL},
-		{PAM_USER_PROMPT, "PAM_USER_PROMPT", NULL},
-		{PAM_FAIL_DELAY, "PAM_FAIL_DELAY", NULL},
-
-		{PAM_AUTHTOK, "PAM_AUTHTOK", NULL},
-		{PAM_OLDAUTHTOK, "PAM_OLDAUTHTOK", NULL},
-	};
-
-	/* Figure out where to save the main service name. */
-	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
-		if(defined_items[i].num == PAM_SERVICE) {
-			parent_service = (const char**) &defined_items[i].item;
-			break;
-		}
-	}
-	if(i >= sizeof(defined_items) / sizeof(defined_items[0])) {
-		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_ERR, "serious internal problems!");
-		closelog();
-		return PAM_SYSTEM_ERR;
-	}
 
 	/* Save the main service name. */
-	ret = pam_get_item(pamh, PAM_SERVICE, &defined_items[i].item);
+	ret = pam_get_item(pamh, PAM_SERVICE, (const void **) &parent_service);
 	if(ret != PAM_SUCCESS) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "pam_get_item(PAM_SERVICE) returned %s",
@@ -161,10 +248,8 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 			}
 		}
 		if(strncmp("service=", argv[i], 8) == 0) {
-			if(service != NULL) {
-				free(service);
-			}
-			service = strdup(argv[i] + 8);
+			_pam_drop(service);
+			service = _pam_strdup(argv[i] + 8);
 		}
 	}
 
@@ -172,8 +257,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "called from \"%s\"",
-		       parent_service && *parent_service ?
-		       *parent_service : "unknown service");
+		       parent_service ? parent_service : "unknown service");
 		closelog();
 	}
 	if(service == NULL) {
@@ -191,12 +275,14 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	}
 	sub_pamh = calloc(1, sizeof(pam_handle_t));
 
+	/* Create an environment for the child. */
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "creating environment");
 		closelog();
 	}
-	if(_pam_make_env(sub_pamh) != PAM_SUCCESS) {
+	ret = _pam_make_env(sub_pamh);
+	if(ret != PAM_SUCCESS) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "_pam_make_env() returned %s",
 		       pam_strerror(pamh, ret));
@@ -204,62 +290,28 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		return PAM_SYSTEM_ERR;
 	}
 
-	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
-		pam_get_item(pamh, defined_items[i].num,
-			     &defined_items[i].item);
-		if(defined_items[i].item == NULL) {
-			if(debug) {
-				openlog("pam_stack", LOG_PID,
-					LOG_AUTHPRIV);
-				syslog(LOG_DEBUG, "item %s is NULL",
-				       defined_items[i].name);
-				closelog();
-			}
-			continue;
-		}
-		if(debug && (defined_items[i].num != PAM_CONV)) {
-			if(debug) {
-				openlog("pam_stack", LOG_PID,
-					LOG_AUTHPRIV);
-				syslog(LOG_DEBUG, "setting item %s to \"%s\"",
-				       defined_items[i].name,
-				       (const char*)defined_items[i].item);
-				closelog();
-			}
-		}
-		ret = pam_set_item(sub_pamh, defined_items[i].num,
-			           defined_items[i].item);
-		if(ret != PAM_SUCCESS) {
-			if(debug) {
-				openlog("pam_stack", LOG_PID,
-					LOG_AUTHPRIV);
-				syslog(LOG_ERR, "pam_set_item(%s) returned %s",
-				       defined_items[i].name,
-				       pam_strerror(pamh, ret));
-				closelog();
-			}
-			return PAM_SYSTEM_ERR;
-		}
-	}
-
-	if(debug) {
+	/* Set the service.  This loads the service modules. */
+	ret = pam_set_item(sub_pamh, PAM_SERVICE, service);
+	if(ret != PAM_SUCCESS) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_DEBUG, "setting item PAM_SERVICE to %s", service);
-		closelog();
-	}
-	pam_set_item(sub_pamh, PAM_SERVICE, service);
-
-	/* Initialize the handlers. */
-	_pam_start_handlers(sub_pamh);
-	if(_pam_init_handlers(sub_pamh) != PAM_SUCCESS) {
-		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_ERR, "_pam_init_handlers() returned %d (%s)",
-		       defined_items[i].num, pam_strerror(pamh, ret));
+		syslog(LOG_ERR, "pam_set_item(PAM_SERVICE) returned %d (%s)",
+		       ret, pam_strerror(sub_pamh, ret));
 		closelog();
 		return PAM_SYSTEM_ERR;
 	}
 
-	/* Copy data from the upper stack to the lower stack. */
+	/* Initialize the handlers for the substack. */
+	_pam_start_handlers(sub_pamh);
+	ret = _pam_init_handlers(sub_pamh);
+	if(ret != PAM_SUCCESS) {
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_ERR, "_pam_init_handlers() returned %d (%s)",
+		       ret, pam_strerror(sub_pamh, ret));
+		closelog();
+		return PAM_SYSTEM_ERR;
+	}
+
+	/* Copy the environment from the upper stack to the lower stack. */
 	env = pam_getenvlist(pamh); 
 	for(i = 0; (env != NULL) && (env[i] != NULL); i++) {
 		if(debug) {
@@ -270,27 +322,32 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		}
 		pam_putenv(sub_pamh, env[i]);
 	}
-	if(pamh->fail_delay.set) {
-		sub_pamh->fail_delay = pamh->fail_delay;
-		if(debug) {
-			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-			syslog(LOG_DEBUG, "passing delay (%u) down",
-			       sub_pamh->fail_delay.delay );
-			closelog();
-		}
-	}
 
+	/* Copy named PAM items to the child. */
+	_pam_stack_copy(pamh, sub_pamh, PAM_AUTHTOK, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, sub_pamh, PAM_CONV, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, sub_pamh, PAM_FAIL_DELAY, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, sub_pamh, PAM_OLDAUTHTOK, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, sub_pamh, PAM_RHOST, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, sub_pamh, PAM_RUSER, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, sub_pamh, PAM_SERVICE, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, sub_pamh, PAM_TTY, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, sub_pamh, PAM_USER, debug ? "child" : NULL);
+	_pam_stack_copy(pamh, sub_pamh, PAM_USER_PROMPT, debug ? "child" : NULL);
+
+	/* Pass the generic data pointer, too. */
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "passing data to child");
 		closelog();
 	}
 	sub_pamh->data = pamh->data;
-
-	/* This isn't exactly Correct, but it does seem to work without getting
-	 * us into infinite recursion which using set_item() would. */
-	if(parent_service && *parent_service)
-		sub_pamh->service_name = strdup(*parent_service);
+	if(debug) {
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "passing former to child");
+		closelog();
+	}
+	sub_pamh->former = pamh->former;
 
 	/* Now call the substack. */
 	if(debug) {
@@ -300,7 +357,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	}
 	final_ret = _pam_dispatch(sub_pamh, flags, which_stack);
 
-	/* Copy the useful data back up to the main stack. */
+	/* Copy the useful data back up to the main stack, environment first. */
 	env = pam_getenvlist(sub_pamh); 
 	for(i = 0; (env != NULL) && (env[i] != NULL); i++) {
 		if(debug) {
@@ -311,47 +368,18 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		}
 		pam_putenv(pamh, env[i]);
 	}
-	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
-		const void *ignored;
-		pam_get_item(pamh, defined_items[i].num, &ignored);
-		if(ignored != NULL) {
-			if(debug) {
-				openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-				syslog(LOG_DEBUG, "not passing %s back up to "
-				       "parent", defined_items[i].name);
-				closelog();
-			}
-			continue;
-		}
-		pam_get_item(sub_pamh, defined_items[i].num,
-			     &defined_items[i].item);
-		if(defined_items[i].item == NULL) {
-			if(debug) {
-				openlog("pam_stack", LOG_PID,
-					LOG_AUTHPRIV);
-				syslog(LOG_DEBUG, "substack's item %s is NULL",
-				       defined_items[i].name);
-				closelog();
-			}
-			continue;
-		}
-		if(debug && (defined_items[i].num != PAM_CONV)) {
-			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-			syslog(LOG_DEBUG, "setting parent item %s to \"%s\"",
-			       (const char*)defined_items[i].name,
-			       (const char*)defined_items[i].item);
-			closelog();
-		}
-		ret = pam_set_item(pamh, defined_items[i].num,
-			           defined_items[i].item);
-		if(ret != PAM_SUCCESS) {
-			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-			syslog(LOG_ERR, "pam_set_item(%s) returned %s",
-			       defined_items[i].name, pam_strerror(pamh, ret));
-			closelog();
-			return PAM_SYSTEM_ERR;
-		}
-	}
+
+	/* Now the named data items. */
+	_pam_stack_copy(sub_pamh, pamh, PAM_AUTHTOK, debug ? "parent" : NULL);
+	_pam_stack_copy(sub_pamh, pamh, PAM_CONV, debug ? "parent" : NULL);
+	_pam_stack_copy(sub_pamh, pamh, PAM_FAIL_DELAY, debug ? "parent" : NULL);
+	_pam_stack_copy(sub_pamh, pamh, PAM_OLDAUTHTOK, debug ? "parent" : NULL);
+	_pam_stack_copy(sub_pamh, pamh, PAM_RHOST, debug ? "parent" : NULL);
+	_pam_stack_copy(sub_pamh, pamh, PAM_RUSER, debug ? "parent" : NULL);
+	_pam_stack_copy(sub_pamh, pamh, PAM_SERVICE, debug ? "parent" : NULL);
+	_pam_stack_copy(sub_pamh, pamh, PAM_TTY, debug ? "parent" : NULL);
+	_pam_stack_copy(sub_pamh, pamh, PAM_USER, debug ? "parent" : NULL);
+	_pam_stack_copy(sub_pamh, pamh, PAM_USER_PROMPT, debug ? "parent" : NULL);
 
 	/* Wow, passing the extra data back is hard. */
 	if(debug) {
@@ -360,28 +388,20 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		closelog();
 	}
 	pamh->data = sub_pamh->data;
+	if(debug) {
+		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "passing former back");
+		closelog();
+	}
+	pamh->former = sub_pamh->former;
 
 	/* Clean up and bug out.  Don't free the ITEMs because they're shared
-	   by the parent's pamh. */
-	sub_pamh->service_name = NULL;
+	   by the parent's pamh.  Because of how setting items works, we don't
+	   actually leak memory doing this (!). */
 	sub_pamh->data = NULL;
+	_pam_drop(sub_pamh->service_name);
 	_pam_drop_env(sub_pamh);
-	if(service != NULL) {
-		_pam_drop(service);
-	}
-
-	if(sub_pamh->fail_delay.set) {
-		if(debug) {
-			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-			syslog(LOG_DEBUG, "passing delay (%u) back",
-			       sub_pamh->fail_delay.delay );
-			closelog();
-		}
-		if(pamh->fail_delay.set)
-			pam_fail_delay(pamh, sub_pamh->fail_delay.delay);
-		else
-			pamh->fail_delay = sub_pamh->fail_delay;
-	}
+	_pam_drop(service);
 
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
@@ -389,7 +409,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		       pam_strerror(sub_pamh, final_ret));
 		closelog();
 	}
-	_pam_drop(sub_pamh);
+	free(sub_pamh);
 
 	return final_ret;
 }
