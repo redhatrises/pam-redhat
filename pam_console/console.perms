@@ -34,7 +34,7 @@
 <kbd>=/dev/kbd
 <joystick>=/dev/js*
 <v4l>=/dev/video* /dev/radio* /dev/winradio* /dev/vtx* /dev/vbi* \
-      /dev/v4l/*
+      /dev/video/*
 <gpm>=/dev/gpmctl
 <dri>=/dev/dri/* /dev/nvidia*
 
