@@ -33,6 +33,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ident "$Id$"
+
 #include "../../_pam_aconf.h"
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -220,16 +222,17 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* If DISPLAY isn't set, we don't really care, now do we? */
 	if((display = getenv("DISPLAY")) == NULL) {
 		if(debug) {
-			syslog(LOG_DEBUG, "pam_xauth: user has no DISPLAY");
+			syslog(LOG_DEBUG, "pam_xauth: user has no DISPLAY,"
+			       " doing nothing");
 		}
-		return PAM_IGNORE;
+		return PAM_SUCCESS;
 	}
 
 	/* Read the target user's name. */
 	if(pam_get_item(pamh, PAM_USER, (const void**)&user) != PAM_SUCCESS) {
 		syslog(LOG_ERR, "pam_xauth: error determining target "
 		       "user's name");
-		return PAM_IGNORE;
+		return PAM_SESSION_ERR;
 	}
 
 	/* Get the target user's UID and primary GID, which we'll need to set
@@ -237,7 +240,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	if(_pam_getpwnam_r(user, &passwd, &tmp, &buflen, &pwd) != 0) {
 		syslog(LOG_ERR, "pam_xauth: error determining target "
 		       "user's UID");
-		return PAM_IGNORE;
+		return PAM_SESSION_ERR;
 	}
 
 	/* We only care about the target user's IDs, so we can free the
@@ -251,7 +254,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	 * about forwarding keys. */
 	if((passwd.pw_uid != 0) && (passwd.pw_uid <= systemuser)) {
 		free(thome);
-		return PAM_IGNORE;
+		return PAM_SUCCESS;
 	}
 
 	/* Figure out where the source user's .Xauthority file is. */
@@ -267,13 +270,13 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			free(t);
 		} else {
 			free(thome);
-			return PAM_IGNORE;
+			return PAM_SESSION_ERR;
 		}
 		cookiefile = malloc(strlen(homedir) + 1 + strlen(XAUTHDEF) + 1);
 		if(cookiefile == NULL) {
 			free(thome);
 			free(homedir);
-			return PAM_IGNORE;
+			return PAM_SESSION_ERR;
 		}
 		strcpy(cookiefile, homedir);
 		strcat(cookiefile, "/");
@@ -298,7 +301,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			}
 			free(thome);
 			free(cookiefile);
-			return PAM_IGNORE;
+			return PAM_SESSION_ERR;
 		}
 
 		/* Generate the environment variable
@@ -312,7 +315,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			free(thome);
 			free(cookiefile);
 			free(cookie);
-			return PAM_IGNORE;
+			return PAM_SESSION_ERR;
 		}
 		strcpy(xauthority, XAUTHENV);
 		strcat(xauthority, "=");
@@ -331,7 +334,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			free(cookiefile);
 			free(cookie);
 			free(xauthority);
-			return PAM_IGNORE;
+			return PAM_SESSION_ERR;
 		}
 		/* Set permissions on the new file and dispose of the
 		 * descriptor. */
@@ -352,7 +355,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			free(xauthority);
 			free(cookiefile);
 			free(cookie);
-			return PAM_IGNORE;
+			return PAM_SESSION_ERR;
 		}
 
 		/* Unset any old XAUTHORITY variable in the environment. */
@@ -378,7 +381,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		free(thome);
 		free(xauthority);
 	}
-	return PAM_IGNORE;
+	return PAM_SUCCESS;
 }
 
 int
@@ -417,5 +420,5 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			*((char*)cookiefile) = '\0';
 		}
 	}
-	return PAM_IGNORE;
+	return PAM_SUCCESS;
 }
