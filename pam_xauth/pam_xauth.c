@@ -271,8 +271,8 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		}
 		cookiefile = malloc(strlen(homedir) + 1 + strlen(XAUTHDEF) + 1);
 		if(cookiefile == NULL) {
-			free(t);
 			free(thome);
+			free(homedir);
 			return PAM_IGNORE;
 		}
 		strcpy(cookiefile, homedir);
@@ -296,6 +296,8 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			if(debug) {
 				syslog(LOG_DEBUG, "pam_xauth: no key");
 			}
+			free(thome);
+			free(cookiefile);
 			return PAM_IGNORE;
 		}
 
@@ -307,6 +309,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			if(debug) {
 				syslog(LOG_DEBUG, "pam_xauth: no free memory");
 			}
+			free(thome);
+			free(cookiefile);
+			free(cookie);
 			return PAM_IGNORE;
 		}
 		strcpy(xauthority, XAUTHENV);
@@ -322,6 +327,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			       "temporary file `%s': %s",
 			       xauthority + strlen(XAUTHENV) + 1,
 			       strerror(errno));
+			free(thome);
+			free(cookiefile);
+			free(cookie);
 			free(xauthority);
 			return PAM_IGNORE;
 		}
@@ -340,8 +348,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			syslog(LOG_ERR, "pam_xauth: error saving name of "
 			       "temporary file `%s'", cookiefile);
 			unlink(cookiefile);
-			free(cookiefile);
+			free(thome);
 			free(xauthority);
+			free(cookiefile);
 			free(cookie);
 			return PAM_IGNORE;
 		}
@@ -366,6 +375,8 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 		/* We don't need to keep a copy of this around any more. */
 		free(cookie);
+		free(thome);
+		free(xauthority);
 	}
 	return PAM_IGNORE;
 }
