@@ -114,9 +114,9 @@ ifdef MAN8
 	test -d $(FAKEROOT)$(MANDIR)/man8 || $(MKDIR) $(FAKEROOT)$(MANDIR)/man8
 	$(INSTALL) -m $(MANMODE) $(MAN8) $(FAKEROOT)$(MANDIR)/man8/
 endif
-	if $(MKDIR) -m $(LOCKMODE) $(FAKEROOT)$(LOCKDIR) $(FAKEROOT)/$(SCONFIGD)/console.apps ; then
-	    bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONF1)" "$(TITLE)" "$(LOCAL_CONF1)"
-	    bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONF2)" "$(TITLE)" "$(LOCAL_CONF2)"
+	if $(MKDIR) -m $(LOCKMODE) $(FAKEROOT)$(LOCKDIR) $(FAKEROOT)/$(SCONFIGD)/console.apps ; then \
+	    bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONF1)" "$(TITLE)" "$(LOCAL_CONF1)" ;\
+	    bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONF2)" "$(TITLE)" "$(LOCAL_CONF2)" ;\
 	fi
 	test -d  $(FAKEROOT)$(SUPLEMENTED) || install -m 755 -d $(FAKEROOT)$(SUPLEMENTED)
 	install -m 555 $(BINARY) $(FAKEROOT)$(SUPLEMENTED)

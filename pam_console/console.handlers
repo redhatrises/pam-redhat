@@ -1,3 +1,5 @@
+# /etc/security/console.handlers
+#
 # This file is provided for configuration of handlers which will be 
 # executed when user obtains console lock and when he loses it.
 #
