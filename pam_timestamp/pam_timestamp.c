@@ -65,11 +65,19 @@
 #define MODULE "pam_timestamp"
 #define TIMESTAMPDIR "/var/run/sudo"
 
+/* Various buffers we use need to be at least as large as either PATH_MAX or
+ * LINE_MAX, so choose the larger of the two. */
+#if (LINE_MAX > PATH_MAX)
+#define BUFLEN LINE_MAX
+#else
+#define BUFLEN PATH_MAX
+#endif
+
 /* Return PAM_SUCCESS if the given directory looks "safe". */
 static int
 check_dir_perms(const char *tdir)
 {
-	char scratch[PATH_MAX];
+	char scratch[BUFLEN];
 	struct stat st;
 	int i;
 	/* Check that the directory is "safe". */
@@ -129,24 +137,15 @@ check_dir_perms(const char *tdir)
 static const char *
 check_tty(const char *tty)
 {
-	struct stat st;
 	/* Check that we're not being set up to take a fall. */
 	if ((tty == NULL) || (strlen(tty) == 0)) {
-		return NULL;
-	}
-	/* Make sure the tty isn't a directory. */
-	if (lstat(tty, &st) == -1) {
-		return NULL;
-	}
-	/* Make sure it's a special. */
-	if (!S_ISCHR(st.st_mode)) {
 		return NULL;
 	}
 	/* Pull out the meaningful part of the tty's name. */
 	if (strchr(tty, '/') != NULL) {
 		tty = strrchr(tty, '/') + 1;
 	}
-	/* Make sure the tty wasn't actually a directory. */
+	/* Make sure the tty wasn't actually a directory (no basename). */
 	if (strlen(tty) == 0) {
 		return NULL;
 	}
@@ -190,7 +189,7 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 {
 	const char *user, *ruser, *tty;
 	const char *tdir = TIMESTAMPDIR;
-	char scratch[LINE_MAX > PATH_MAX ? LINE_MAX : PATH_MAX];
+	char scratch[BUFLEN];
 	char *buf = NULL;
 	size_t bufsize = 0;
 	struct passwd passwd, *pwd;
@@ -234,7 +233,8 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		/* Barring that, use the current RUID. */
 		if (_pam_getpwuid_r(getuid(), &passwd, &buf, &bufsize, &pwd) == 0) {
 			if (strlen(pwd->pw_name) < sizeof(scratch)) {
-				strcpy(scratch, pwd->pw_name);
+				strncpy(scratch, pwd->pw_name, sizeof(scratch));
+				scratch[sizeof(scratch) - 1] = '\0';
 				ruser = scratch;
 			}
 			free(buf);
@@ -258,9 +258,10 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		if ((tty == NULL) || (strlen(tty) == 0)) {
 			tty = ttyname(STDERR_FILENO);
 		}
-	}
-	if ((tty == NULL) || (strlen(tty) == 0)) {
-		return PAM_AUTH_ERR;
+		if ((tty == NULL) || (strlen(tty) == 0)) {
+			/* Match sudo's behavior for this case. */
+			tty = "unknown";
+		}
 	}
 	if (debug) {
 		syslog(LOG_DEBUG, MODULE ": tty is `%s'", tty);
@@ -286,7 +287,7 @@ static void
 verbose_success(pam_handle_t *pamh, int debug, int diff)
 {
 	struct pam_conv *conv;
-	char text[LINE_MAX];
+	char text[BUFLEN];
 	struct pam_message message;
 	const struct pam_message *messages[] = {&message};
 	struct pam_response *responses;
@@ -314,8 +315,9 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	struct stat st;
 	time_t interval = DEFAULT_TIMESTAMP_TIMEOUT;
 	int i, debug = 0, verbose = 0;
-	char path[PATH_MAX];
-	const char *service = "(unknown)";
+	char path[BUFLEN];
+	long tmp;
+	const char *service = "(unknown)", *p;
 	time_t now;
 	/* Parse arguments. */
 	for (i = 0; i < argc; i++) {
@@ -325,11 +327,14 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 	for (i = 0; i < argc; i++) {
 		if (strncmp(argv[i], "timestamp_timeout=", 18) == 0) {
-			interval = atol(argv[i] + 18);
-			if (debug) {
-				syslog(LOG_DEBUG,
-				       MODULE ": setting timeout to %ld seconds",
-				       (long)interval);
+			tmp = strtol(argv[i] + 18, &p, 0);
+			if ((p != NULL) && (*p == '\0')) {
+				interval = tmp;
+				if (debug) {
+					syslog(LOG_DEBUG,
+					       MODULE ": setting timeout to %ld"
+					       " seconds", (long)interval);
+				}
 			}
 		} else
 		if (strcmp(argv[i], "verbose") == 0) {
@@ -398,7 +403,7 @@ PAM_EXTERN int
 pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	struct stat st;
-	char path[PATH_MAX], subdir[PATH_MAX];
+	char path[BUFLEN], subdir[BUFLEN];
 	int fd, i, debug = 0;
 	/* Parse arguments. */
 	for (i = 0; i < argc; i++) {
@@ -414,11 +419,14 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* Create a timestamp file if it doesn't already exist. */
 	for (i = 1; path[i] != '\0'; i++) {
 		if (path[i] == '/') {
-			/* Check for the existence of a directory. */
+			/* Attempt to create the directory. */
 			strncpy(subdir, path, i);
 			subdir[i] = '\0';
-			if ((stat(subdir, &st) == -1) && (errno == ENOENT)) {
-				if (mkdir(subdir, 0700) != 0) {
+			if (mkdir(subdir, 0700) == 0) {
+				/* Attempt to set the owner to the superuser. */
+				lchown(subdir, 0, 0);
+			} else {
+				if (errno != EEXIST) {
 					if (debug) {
 						syslog(LOG_DEBUG,
 						       MODULE ": error creating"
@@ -427,8 +435,6 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 					}
 					return PAM_SESSION_ERR;
 				}
-				/* Attempt to set the owner to the superuser. */
-				lchown(subdir, 0, 0);
 			}
 		}
 	}
@@ -476,7 +482,7 @@ main(int argc, char **argv)
 	struct passwd *pwd;
 	struct timeval tv;
 	fd_set write_fds;
-	char path[PATH_MAX];
+	char path[BUFLEN];
 	struct stat st;
 
 	while ((i = getopt(argc, argv, "dk")) != -1) {
@@ -528,13 +534,17 @@ main(int argc, char **argv)
 
 	/* Get the name of the target user. */
 	user = strdup(pwd->pw_name);
-	target_user = (optind < argc) ? argv[optind] : user;
-	if ((strchr(target_user, '.') != NULL) ||
-	    (strchr(target_user, '/') != NULL) ||
-	    (strchr(target_user, '%') != NULL)) {
-		fprintf(stderr, "unknown user: %s\n",
-			target_user);
+	if (user == NULL) {
 		retval = 4;
+	} else {
+		target_user = (optind < argc) ? argv[optind] : user;
+		if ((strchr(target_user, '.') != NULL) ||
+		    (strchr(target_user, '/') != NULL) ||
+		    (strchr(target_user, '%') != NULL)) {
+			fprintf(stderr, "unknown user: %s\n",
+				target_user);
+			retval = 4;
+		}
 	}
 
 	/* Sanity check the tty to make sure we should be checking
