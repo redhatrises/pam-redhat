@@ -205,6 +205,7 @@ check_console_name (const char *consolename, int nonroot_ok) {
         strcpy(full_path, "/dev/");
         strncat(full_path, consolename,
                 sizeof(full_path) - 1 - strlen(full_path));
+	full_path[sizeof(full_path) - 1] = '\0';
         _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"",
 		 full_path);
         if (lstat(full_path, &st) != -1) {
@@ -221,6 +222,7 @@ check_console_name (const char *consolename, int nonroot_ok) {
             l = (l < dot - consolename - 1) ? l : dot - consolename - 1;
         }
         strncat(full_path, consolename + 1, l);
+	full_path[sizeof(full_path) - 1] = '\0';
         _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"",
 		 full_path);
         if (lstat(full_path, &st) != -1) {

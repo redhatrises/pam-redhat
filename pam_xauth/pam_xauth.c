@@ -113,8 +113,9 @@ do_file(action *a)
 
     setfsuid(user[a->context]);
     /* need enough space for expanded "$HOME/.xauth/<a->filename>" */
-    path = alloca(strlen(home[a->context]) + strlen(a->filename) + 9);
-    xauthpath = alloca(strlen(home[a->context]) + 9);
+    path = alloca(strlen(home[a->context]) + sizeof("/.xauth/") +
+		  strlen(a->filename));
+    xauthpath = alloca(strlen(home[a->context]) + sizeof("/.xauth/"));
     if (!path || !xauthpath) {
 	_pam_log(LOG_ERR, "do_file: out of memory");
 	setfsuid(0); return 0;
@@ -151,7 +152,7 @@ do_file(action *a)
 	while (p && (*p != '/') && (*p != '\0')) p++;
 	if (*p == '/') {
 	    strcpy(path, xauthpath); strcat(path, "/");
-	    strncat(path, a->filename, (p)-a->filename);
+	    strncat(path, a->filename, p - a->filename);
 	    if (mkdir(path, 0700) && errno != EEXIST) {
 		_pam_log(LOG_ERR, "do_file: could not create dir %s", path);
 		setfsuid(0); return 0;

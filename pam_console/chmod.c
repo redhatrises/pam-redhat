@@ -112,6 +112,7 @@ savedir (const char *dir, unsigned name_size)
       closedir (dirp);
       return NULL;
     }
+  memset(namep, '\0', name_size);
   namep = name_space;
 
   while ((dp = readdir (dirp)) != NULL)
@@ -139,7 +140,7 @@ savedir (const char *dir, unsigned name_size)
 	      namep += new_name_space - name_space;
 	      name_space = new_name_space;
 	    }
-	  namep = stpcpy (namep, dp->d_name) + 1;
+	  namep = (char*) stpcpy (namep, dp->d_name) + 1;
 	}
     }
   *namep = '\0';
@@ -231,7 +232,7 @@ change_dir_mode (const char *dir, const struct mode_change *changes,
   dirlength = strlen (dir) + 1;	/* + 1 is for the trailing '/'. */
   pathlength = dirlength + 1;
   /* Give `path' a dummy value; it will be reallocated before first use. */
-  path = g_malloc (pathlength);
+  path = g_malloc0 (pathlength);
   strcpy (path, dir);
   path[dirlength - 1] = '/';
 
