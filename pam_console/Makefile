@@ -64,11 +64,11 @@ all: dirs $(LIBSHARED) $(LIBSTATIC)
 
 config.tab.c: config.y
 	bison $(BISON_OPTS) -p _pc_yy $<
-	./sed-static $@
+	sh ./sed-static $@
 
 config.lex.c: config.l config.tab.c
 	flex $(FLEX_OPTS) -o$@ -P_pc_yy $<
-	./sed-static $@
+	sh ./sed-static $@
 
 dirs:
 ifdef DYNAMIC
