@@ -127,15 +127,15 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 			break;
 		case PAM_CONV:
 			name = "PAM_CONV";
-			if(source->pam_conversation && !dest->pam_conversation) {
+			if(source->pam_conversation) {
 				copied = 1;
+				if(dest->pam_conversation) {
+					_pam_drop(dest->pam_conversation);
+				}				
 				dest->pam_conversation = calloc(1, sizeof(struct pam_conv));
 				*dest->pam_conversation = *source->pam_conversation;
 			} else {
-				if(!source->pam_conversation)
-					reason = "source not NULL";
-				if(dest->pam_conversation)
-					reason = "destination already set";
+				reason = "source is NULL";
 			}
 			break;
 		case PAM_FAIL_DELAY:
