@@ -6,9 +6,8 @@
  * written by Andrew Morgan <morgan@linux.kernel.org> 1996/3/11
  */
 
-#define _GNU_SOURCE
-
-#include "../../_pam_aconf.h"
+#include "../config.h"
+#include "../lib/libmisc.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -26,7 +25,6 @@
 #define PAM_SM_AUTH
 
 #include <security/pam_modules.h>
-#include <security/_pam_modutil.h>
 
 /* some syslogging */
 
@@ -79,7 +77,7 @@ int pam_sm_authenticate(pam_handle_t *pamh,int flags,int argc
     ctrl = _pam_parse(argc, argv);
 
     uid = getuid();
-    pw = _pammodutil_getpwuid(pamh, uid);
+    pw = libmisc_getpwuid(pamh, uid);
 
     if ((uid == 26) && (pw != NULL) && (strcmp(pw->pw_name, "postgres") == 0))
 	retval = PAM_SUCCESS;
