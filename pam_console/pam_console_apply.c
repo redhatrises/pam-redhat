@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdarg.h>
 #define STATIC static
 #include "pam_console.h"
 
@@ -41,7 +42,7 @@ _pam_log(int err, int debug_p, const char *format, ...)
 	va_list args;
 	if (debug_p && !debug) return;
         va_start(args, format);
-	fprintf(stderr, format, args);
+	vfprintf(stderr, format, args);
 	va_end(args);
 }
 
