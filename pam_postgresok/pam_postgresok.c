@@ -8,10 +8,12 @@
 
 #define _GNU_SOURCE
 
+#include "../../_pam_aconf.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <syslog.h>
 #include <stdarg.h>
+#include <string.h>
 #include <pwd.h>
 
 /*
@@ -23,7 +25,10 @@
 
 #define PAM_SM_AUTH
 
-#include <security/pam_modules.h>
+#include "../../libpam/include/security/pam_modules.h"
+
+#define PAM_GETPWUID_R
+#include "../../libpam/include/security/_pam_macros.h"
 
 /* some syslogging */
 
@@ -69,17 +74,24 @@ int pam_sm_authenticate(pam_handle_t *pamh,int flags,int argc
 			,const char **argv)
 {
     uid_t uid;
-    struct passwd *pw;
+    struct passwd *pw, passwd;
     int ctrl;
     int retval = PAM_AUTH_ERR;
+    char *tmp;
+    size_t buflen;
 
     ctrl = _pam_parse(argc, argv);
 
     uid = getuid();
-    pw = getpwuid(uid);
 
-    if ((uid == 26) && (strcmp(pw->pw_name, "postgres") == 0))
-	retval = PAM_SUCCESS;
+    tmp = NULL;
+    pw = NULL;
+    if (_pam_getpwuid_r(uid, &passwd, &tmp, &buflen, &pw) == 0) {
+        if ((uid == 26) &&
+	    (pw != NULL) &&
+	    (strcmp(pw->pw_name, "postgres") == 0))
+	    retval = PAM_SUCCESS;
+    }
 
     if (ctrl & PAM_DEBUG_ARG) {
 	_pam_log(LOG_DEBUG, "authentication %s"
