@@ -7,9 +7,7 @@ In a nutshell, calling pam_stack diverts a PAM stack into another
 configuration file.  If the substack executes successfully, pam_stack
 returns PAM_SUCCESS.  If the substack fails, pam_stack returns the
 error code returned by the internal PAM dispatching routines, which
-is typically the code returned by the module that failed.  We make
-sure we call the substack just like libpam would by using the same
-functions as libpam.
+is typically the code returned by the module that failed.
 
 This is primarily of use for when you want a consistent authentication
 model for all of your system services, but want to allow the specifics
