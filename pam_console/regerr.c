@@ -2,6 +2,7 @@
  * This software may be used under the terms of the GNU General Public
  * License, available in the file COPYING accompanying this file
  */
+#include "../../_pam_aconf.h"
 #include <sys/types.h>
 #include <regex.h>
 #include "pam_console.h"

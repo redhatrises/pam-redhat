@@ -2,6 +2,7 @@
  * Read in the file, and grant ownerships to whoever has the lock.
  */
 
+#include "../../_pam_aconf.h"
 #include <errno.h>
 #include <glib.h>
 #include <pwd.h>

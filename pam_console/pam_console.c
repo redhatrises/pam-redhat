@@ -23,6 +23,7 @@
  * and everything in /var/run/console/
  */
 
+#include "../../_pam_aconf.h"
 #include <errno.h>
 #include <glib.h>
 #include <pwd.h>

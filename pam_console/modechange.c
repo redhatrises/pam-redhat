@@ -30,6 +30,7 @@
    changing the mode of many files, this probably results in a
    performance gain. */
 
+#include "../../_pam_aconf.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "modechange.h"
