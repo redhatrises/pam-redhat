@@ -11,7 +11,7 @@ RECOGNIZED ARGUMENTS:
 			/usr/X11R6/bin/xauth
 
 MODULE SERVICES PROVIDED:
-	sess            open session copies xauth cookie to new user
+	session         open session copies xauth cookie to new user
 			close session deletes copied xauth cookie
 
 AUTHOR:

@@ -48,8 +48,8 @@
  */
 #define CAST_ME_HARDER (const void**)
 
-static char consolelock[PATH_MAX] = "/var/run/console.lock";
-static char consolerefs[PATH_MAX] = "/var/run/console/";
+static char consolelock[PATH_MAX] = LOCKDIR "/console.lock";
+static char consolerefs[PATH_MAX] = LOCKDIR "/console/";
 static char consoleapps[PATH_MAX] = "/etc/security/console.apps/";
 static char consoleperms[PATH_MAX] = "/etc/security/console.perms";
 static int configfileparsed = 0;

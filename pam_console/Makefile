@@ -8,7 +8,7 @@ include ../../Make.Rules
 
 TITLE=pam_console
 
-LOCKDIR = /var/lock/console
+LOCKDIR = /var/run/console
 LOCKMODE = 755
 LIBS +=  $(shell glib-config --libs)
 LDFLAGS = $(LIBS)
@@ -20,7 +20,7 @@ INSTALLED_CONFILE = $(SCONFIGD)/console.perms
 MAN5 = console.apps.5 console.perms.5
 MAN8 = pam_console.8 pam_console_apply.8
 
-CFLAGS += $(shell glib-config --cflags) -D_GNU_SOURCE
+CFLAGS += $(shell glib-config --cflags) -D_GNU_SOURCE -DLOCKDIR=\"$(LOCKDIR)\"
 
 FLEX_OPTS = -Cr
 BISON_OPTS = -d
