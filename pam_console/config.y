@@ -160,7 +160,7 @@ check_one_console_name (char *name, char *classComponent) {
 }
 
 STATIC int
-check_console_name (char *consolename) {
+check_console_name (char *consolename, int nonroot_ok) {
     GSList *this_class;
     GSList *this_list;
     class *c;
@@ -226,20 +226,16 @@ check_console_name (char *consolename) {
 
     if (statted) {
         int ok = 0;
-        if (S_ISCHR(st.st_mode)) {
-            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "console %s is a character device", consolename);
+        if (st.st_uid == 0) {
+            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "console %s is owned by UID 0", consolename);
             ok = 1;
         }
-        if (S_ISSOCK(st.st_mode) && (st.st_uid == 0)) {
-            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "console %s is a root-owned X11 socket", consolename);
-            ok = 1;
-        }
-        if (!ok) {
-            _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, 1, "%s is not a valid console device", consolename);
+        if (!ok && !nonroot_ok) {
+            _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, 1, "%s is not a valid console device because it is owned by UID %d and the allow_nonroot flag was not set", consolename, st.st_uid);
             found = 0;
         }
     } else {
-        _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, 1, "can't find device to examine for %s", consolename);
+        _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, 1, "can't find device or X11 socket to examine for %s", consolename);
         found = 0;
     }
 
@@ -256,13 +252,13 @@ check_console_name (char *consolename) {
 }
 
 STATIC int
-set_permissions(char *consolename, char *username) {
+set_permissions(char *consolename, char *username, int nonroot_ok) {
     struct passwd *p;
     config *c;
     GSList *cl;
 
     if (!consoleNameCache || strcmp(consolename, consoleNameCache)) {
-	if (!check_console_name(consolename)) return -1;
+	if (!check_console_name(consolename, nonroot_ok)) return -1;
     }
 
     p = getpwnam(username);
@@ -285,14 +281,14 @@ set_permissions(char *consolename, char *username) {
 }
 
 STATIC int
-reset_permissions(char *consolename) {
+reset_permissions(char *consolename, int nonroot_ok) {
     struct passwd *p;
     struct group *g;
     config *c;
     GSList *cl;
 
     if (!consoleNameCache || strcmp(consolename, consoleNameCache)) {
-	if (!check_console_name(consolename)) return -1;
+	if (!check_console_name(consolename, nonroot_ok)) return -1;
     }
 
     for (cl = configList; cl; cl = cl->next) {

@@ -54,6 +54,7 @@ static char *consoleapps = "/etc/security/console.apps/";
 static char *consoleperms = "/etc/security/console.perms";
 static int configfileparsed = 0;
 static int debug = 0;
+static int allow_nonroot = 0;
 
 
 /* some syslogging */
@@ -88,6 +89,8 @@ _args_parse(int argc, const char **argv)
     for (; argc-- > 0; ++argv) {
 	if (!strcmp(*argv,"debug"))
 	    debug = 1;
+	else if (!strcmp(*argv,"allow_nonroot"))
+	    allow_nonroot = 1;
 	else if (!strncmp(*argv,"permsfile=",10))
 	    strcpy(consoleperms,*argv+10);
 	else {
@@ -340,7 +343,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (!configfileparsed) { parse_file(consoleperms); configfileparsed = 1; }
 
     /* return success quietly if not a terminal login */
-    if (!check_console_name(tty)) return PAM_SUCCESS;
+    if (!check_console_name(tty, allow_nonroot)) return PAM_SUCCESS;
 
     if (!lock_console(username)) got_console = 1;
 
@@ -352,7 +355,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (got_console) {
 	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "%s is console user", username);
 	/* woohoo!  We got here first, grab ownership and perms... */
-	set_permissions(tty, username);
+	set_permissions(tty, username, allow_nonroot);
 	/* errors will be logged and are not critical */
         ret = PAM_SUCCESS;
     }
@@ -395,7 +398,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (!configfileparsed) { parse_file(consoleperms); configfileparsed = 1; }
 
     /* return success quietly if not a terminal login */
-    if (!check_console_name(tty)) return PAM_SUCCESS;
+    if (!check_console_name(tty, allow_nonroot)) return PAM_SUCCESS;
 
     lockfile = _do_malloc(strlen(consolerefs) + strlen(username) + 2);
     sprintf(lockfile, "%s%s", consolerefs, username); /* trusted data */
@@ -425,7 +428,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	    if (!strcmp(username, consoleuser)) {
 		delete_consolelock = 1;
-		reset_permissions(tty);
+		reset_permissions(tty, allow_nonroot);
 		/* errors will be logged and at this stage we cannot do
 		 * anything about them...
 		 */

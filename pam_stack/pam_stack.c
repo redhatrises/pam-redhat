@@ -154,11 +154,13 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		pam_get_item(pamh, defined_items[i].num,
 			     &defined_items[i].item);
 		if(defined_items[i].item == NULL) {
+			syslog(LOG_DEBUG, MODULE_NAME ": item %s is NULL",
+			       defined_items[i].name);
 			continue;
 		}
 		if(debug && (defined_items[i].num != PAM_CONV)) {
-			syslog(LOG_DEBUG, MODULE_NAME ": setting item %s to %s",
-			       defined_items[i].name,
+			syslog(LOG_DEBUG, MODULE_NAME ": setting item %s to "
+			       "\"%s\"", defined_items[i].name,
 			       defined_items[i].item);
 		}
 		ret = pam_set_item(sub_pamh, defined_items[i].num,
@@ -204,6 +206,28 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		if(debug) syslog(LOG_DEBUG, MODULE_NAME ": setting environment "
 				 "\"%s\" in parent", env[i]);
 		pam_putenv(pamh, env[i]);
+	}
+	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
+		pam_get_item(sub_pamh, defined_items[i].num,
+			     &defined_items[i].item);
+		if(defined_items[i].item == NULL) {
+			syslog(LOG_DEBUG, MODULE_NAME ": substack's item %s is "
+			       "NULL", defined_items[i].name);
+			continue;
+		}
+		if(debug && (defined_items[i].num != PAM_CONV)) {
+			syslog(LOG_DEBUG, MODULE_NAME ": setting parent item %s"
+			       " to \"%s\"", defined_items[i].name,
+			       defined_items[i].item);
+		}
+		ret = pam_set_item(pamh, defined_items[i].num,
+			           defined_items[i].item);
+		if(ret != PAM_SUCCESS) {
+			syslog(LOG_WARNING, MODULE_NAME ": pam_set_item(%s) "
+			       "returned %s", defined_items[i].name,
+			       pam_strerror(pamh, ret));
+			return PAM_SYSTEM_ERR;
+		}
 	}
 
 	if(debug) syslog(LOG_DEBUG, MODULE_NAME ": passing data back");
