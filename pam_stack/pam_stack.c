@@ -33,8 +33,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MODULE_NAME "pam_stack"
-
 static struct {
 	int num;
 	const char *name;
@@ -104,19 +102,26 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		if(defined_items[i].num == PAM_SERVICE) break;
 	}
 	if(i >= sizeof(defined_items) / sizeof(defined_items[0])) {
-		syslog(LOG_WARNING, MODULE_NAME ": serious internal problems!");
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_WARNING, "serious internal problems!");
+		closelog();
 		return PAM_SYSTEM_ERR;
 	}
 
 	/* Sign-on message. */
-	if(debug) syslog(LOG_DEBUG, MODULE_NAME ": called from \"%s\"",
-			 defined_items[i].item);
+	if(debug) {
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "called from \"%s\"", defined_items[i].item);
+		closelog();
+	}
 
 	/* Save the main service name. */
 	ret = pam_get_item(pamh, PAM_SERVICE, &defined_items[i].item);
 	if(ret != PAM_SUCCESS) {
-		syslog(LOG_WARNING, MODULE_NAME ": pam_get_data(PAM_SERVICE) "
-		       "returned %s", pam_strerror(pamh, ret));
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_WARNING, "pam_get_data(PAM_SERVICE) returned %s",
+		       pam_strerror(pamh, ret));
+		closelog();
 		return PAM_SYSTEM_ERR;
 	}
 
@@ -134,19 +139,30 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	}
 
 	if(service == NULL) {
-		syslog(LOG_WARNING, MODULE_NAME
-		       ": required argument \"service\" not given");
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_WARNING, "required argument \"service\" not given");
+		closelog();
 		return PAM_SYSTEM_ERR;
 	}
 
 	/* Create and initialize a pam_handle_t structure for our substack. */
-	if(debug) syslog(LOG_DEBUG, MODULE_NAME ": initializing");
+	if(debug) {
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "initializing");
+		closelog();
+	}
 	sub_pamh = calloc(1, sizeof(pam_handle_t));
 
-	if(debug) syslog(LOG_DEBUG, MODULE_NAME ": creating environment");
+	if(debug) {
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "creating environment");
+		closelog();
+	}
 	if(_pam_make_env(sub_pamh) != PAM_SUCCESS) {
-		syslog(LOG_WARNING, MODULE_NAME ": _pam_make_env() "
-		       "returned %s", pam_strerror(pamh, ret));
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_WARNING, "_pam_make_env() returned %s",
+		       pam_strerror(pamh, ret));
+		closelog();
 		return PAM_SYSTEM_ERR;
 	}
 
@@ -154,83 +170,134 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		pam_get_item(pamh, defined_items[i].num,
 			     &defined_items[i].item);
 		if(defined_items[i].item == NULL) {
-			syslog(LOG_DEBUG, MODULE_NAME ": item %s is NULL",
-			       defined_items[i].name);
+			if(debug) {
+				openlog("pam_stack", LOG_CONS|LOG_PID,
+					LOG_AUTHPRIV);
+				syslog(LOG_DEBUG, "item %s is NULL",
+				       defined_items[i].name);
+				closelog();
+			}
 			continue;
 		}
 		if(debug && (defined_items[i].num != PAM_CONV)) {
-			syslog(LOG_DEBUG, MODULE_NAME ": setting item %s to "
-			       "\"%s\"", defined_items[i].name,
-			       defined_items[i].item);
+			if(debug) {
+				openlog("pam_stack", LOG_CONS|LOG_PID,
+					LOG_AUTHPRIV);
+				syslog(LOG_DEBUG, "setting item %s to \"%s\"",
+				       defined_items[i].name,
+				       defined_items[i].item);
+				closelog();
+			}
 		}
 		ret = pam_set_item(sub_pamh, defined_items[i].num,
 			           defined_items[i].item);
 		if(ret != PAM_SUCCESS) {
-			syslog(LOG_WARNING, MODULE_NAME ": pam_set_item(%s) "
-			       "returned %s", defined_items[i].name,
-			       pam_strerror(pamh, ret));
+			if(debug) {
+				openlog("pam_stack", LOG_CONS|LOG_PID,
+					LOG_AUTHPRIV);
+				syslog(LOG_WARNING, "pam_set_item(%s) returned %s",
+				       defined_items[i].name,
+				       pam_strerror(pamh, ret));
+				closelog();
+			}
 			return PAM_SYSTEM_ERR;
 		}
 	}
 
-	if(debug) syslog(LOG_DEBUG, MODULE_NAME
-			 ": setting item PAM_SERVICE to %s", service);
+	if(debug) {
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "setting item PAM_SERVICE to %s", service);
+		closelog();
+	}
 	pam_set_item(sub_pamh, PAM_SERVICE, service);
 
 	/* Initialize the handlers. */
 	_pam_start_handlers(sub_pamh);
 	if(_pam_init_handlers(sub_pamh) != PAM_SUCCESS) {
-		syslog(LOG_WARNING, MODULE_NAME ": _pam_init_handlers() "
-		       "returned %s", defined_items[i].num,
-		       pam_strerror(pamh, ret));
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_WARNING, "_pam_init_handlers() returned %s",
+		       defined_items[i].num, pam_strerror(pamh, ret));
+		closelog();
 		return PAM_SYSTEM_ERR;
 	}
 
 	/* Copy data from the upper stack to the lower stack. */
 	env = pam_getenvlist(pamh); 
 	for(i = 0; (env != NULL) && (env[i] != NULL); i++) {
-		if(debug) syslog(LOG_DEBUG, MODULE_NAME ": setting environment "
-				 "\"%s\" in child", env[i]);
+		if(debug) {
+			openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_DEBUG, "setting environment \"%s\" in child",
+			       env[i]);
+			closelog();
+		}
 		pam_putenv(sub_pamh, env[i]);
 	}
-	if(debug) syslog(LOG_DEBUG, MODULE_NAME ": passing data to child");
+	if(debug) {
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "passing data to child");
+		closelog();
+	}
 	sub_pamh->data = pamh->data;
 
 	/* Now call the substack. */
-	if(debug) syslog(LOG_DEBUG, MODULE_NAME ": calling substack");
+	if(debug) {
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "calling substack");
+		closelog();
+	}
 	ret = _pam_dispatch(sub_pamh, flags, which_stack);
 
 	/* Copy the useful data back up to the main stack. */
 	env = pam_getenvlist(sub_pamh); 
 	for(i = 0; (env != NULL) && (env[i] != NULL); i++) {
-		if(debug) syslog(LOG_DEBUG, MODULE_NAME ": setting environment "
-				 "\"%s\" in parent", env[i]);
+		if(debug) {
+			openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_DEBUG, "setting environment \"%s\" in "
+			       "parent", env[i]);
+			closelog();
+		}
 		pam_putenv(pamh, env[i]);
 	}
 	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
+		const void *ignored;
+		pam_get_item(pamh, defined_items[i].num, &ignored);
+		if(ignored != NULL) {
+			continue;
+		}
 		pam_get_item(sub_pamh, defined_items[i].num,
 			     &defined_items[i].item);
 		if(defined_items[i].item == NULL) {
-			syslog(LOG_DEBUG, MODULE_NAME ": substack's item %s is "
-			       "NULL", defined_items[i].name);
+			if(debug) {
+				openlog("pam_stack", LOG_CONS|LOG_PID,
+					LOG_AUTHPRIV);
+				syslog(LOG_DEBUG, "substack's item %s is NULL",
+				       defined_items[i].name);
+				closelog();
+			}
 			continue;
 		}
 		if(debug && (defined_items[i].num != PAM_CONV)) {
-			syslog(LOG_DEBUG, MODULE_NAME ": setting parent item %s"
-			       " to \"%s\"", defined_items[i].name,
-			       defined_items[i].item);
+			openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_DEBUG, "setting parent item %s to \"%s\"",
+			       defined_items[i].name, defined_items[i].item);
+			closelog();
 		}
 		ret = pam_set_item(pamh, defined_items[i].num,
 			           defined_items[i].item);
 		if(ret != PAM_SUCCESS) {
-			syslog(LOG_WARNING, MODULE_NAME ": pam_set_item(%s) "
-			       "returned %s", defined_items[i].name,
-			       pam_strerror(pamh, ret));
+			openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+			syslog(LOG_WARNING, "pam_set_item(%s) returned %s",
+			       defined_items[i].name, pam_strerror(pamh, ret));
+			closelog();
 			return PAM_SYSTEM_ERR;
 		}
 	}
 
-	if(debug) syslog(LOG_DEBUG, MODULE_NAME ": passing data back");
+	if(debug) {
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "passing data back");
+		closelog();
+	}
 	pamh->data = sub_pamh->data;
 
 	/* Clean up and bug out.  Don't free the ITEMs because they're shared
@@ -241,8 +308,12 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		_pam_drop(service);
 	}
 	_pam_drop(sub_pamh);
-	if(debug) syslog(LOG_DEBUG, MODULE_NAME ": returning %d (%s)", ret,
-			 pam_strerror(sub_pamh, ret));
+	if(debug) {
+		openlog("pam_stack", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+		syslog(LOG_DEBUG, "returning %d (%s)", ret,
+		       pam_strerror(sub_pamh, ret));
+		closelog();
+	}
 
 	return ret;
 }

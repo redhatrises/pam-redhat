@@ -54,7 +54,7 @@ static char *consoleapps = "/etc/security/console.apps/";
 static char *consoleperms = "/etc/security/console.perms";
 static int configfileparsed = 0;
 static int debug = 0;
-static int allow_nonroot = 0;
+static int allow_nonroot_tty = 0;
 
 
 /* some syslogging */
@@ -90,11 +90,11 @@ _args_parse(int argc, const char **argv)
 	if (!strcmp(*argv,"debug"))
 	    debug = 1;
 	else if (!strcmp(*argv,"allow_nonroot_tty"))
-	    allow_nonroot = 1;
+	    allow_nonroot_tty = 1;
 	else if (!strncmp(*argv,"permsfile=",10))
 	    strcpy(consoleperms,*argv+10);
 	else {
-	    _pam_log(LOG_PID|LOG_ERR, 0,
+	    _pam_log(LOG_PID|LOG_ERR, FALSE,
 		     "_args_parse: unknown option; %s",*argv);
 	}
     }
@@ -109,7 +109,7 @@ is_root(const char *username) {
 
     p = getpwnam(username);
     if (!p) {
-        _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+        _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
         	 "getpwnam failed for %s", username);
         return 0;
     }
@@ -117,13 +117,13 @@ is_root(const char *username) {
 }
 
 static int
-lock_console(char *id)
+lock_console(const char *id)
 {
     int fd;
 
     fd = open(consolelock, O_RDWR|O_CREAT|O_EXCL, 0600);
     if (fd < 0) {
-	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_INFO, 1,
+	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_INFO, TRUE,
 		"console file lock already in place %s", consolelock);
 	return -1;
     }
@@ -152,7 +152,7 @@ use_count(char *filename, int increment, int delete)
 top:
 	fd = open(filename, O_RDWR|O_CREAT, 0600);
     	if (fd < 0) {
-	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
 		    "Could not open lock file %s, disallowing console access",
 		    filename);
 	    return -1;
@@ -180,7 +180,7 @@ top:
 	     * wait and calling fcntl again, not likely to ever happen, and
 	     * not a problem other than cosmetics even if it does.
 	     */
-	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
 		    "ignoring stale lock on file %s by process %d",
 		    lockinfo.l_pid, filename);
 	}
@@ -198,19 +198,19 @@ top:
 
 
     if (fstat (fd, &st)) {
-	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
 		"\"impossible\" fstat error on open fd for %s", filename);
 	err = -1; goto return_error;
     }
     buf = _do_malloc(st.st_size+2); /* size will never grow by more than one */
     if (st.st_size) {
 	if (read (fd, buf, st.st_size) == -1) {
-	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
 		    "\"impossible\" read error on %s", filename);
 	    err = -1; goto return_error;
 	}
 	if (lseek(fd, 0, SEEK_SET) == -1) {
-	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
 		    "\"impossible\" lseek error on %s", filename);
 	    err = -1; goto return_error;
 	}
@@ -224,7 +224,7 @@ top:
 	val += increment;
 	if (val <= 0 && delete) {
 	    if (unlink (filename)) {
-		_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+		_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
 			"\"impossible\" unlink error on %s", filename);
 		err = -1; goto return_error;
 	    }
@@ -233,7 +233,7 @@ top:
 
 	sprintf(buf, "%d", val);
 	if (write(fd, buf, strlen(buf)) == -1) {
-	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
 		    "\"impossible\" write error on %s", filename);
 	    err = -1; goto return_error;
 	}
@@ -251,12 +251,6 @@ return_error:
     return err;
 }
 
-
-
-
-
-
-
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
@@ -271,11 +265,12 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
     char *service;
     int ret = PAM_AUTH_ERR;
 
+    D(("called."));
     _args_parse(argc, argv);
     if (!getuid()) return PAM_SUCCESS; /* root always trivially succeeds */
     p = getpwuid(getuid());
     if (!p) {
-	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0, "id %d not found", getuid());
+	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE, "id %d not found", getuid());
 	return PAM_AUTH_ERR;
     }
 
@@ -287,13 +282,13 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
     sprintf(appsfile, "%s%s", consoleapps, service); /* trusted data */
 
     if (access(lockfile, F_OK) < 0) {
-	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1,
+	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, TRUE,
 		 "user %s not a console user", p->pw_name);
 	ret = PAM_AUTH_ERR; goto error_return;
     }
 
     if (access(appsfile, F_OK) < 0) {
-	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1,
+	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, TRUE,
 		 "console access disallowed for service %s", service);
 	ret = PAM_AUTH_ERR; goto error_return;
     }
@@ -326,24 +321,36 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     int got_console = 0;
     int count = 0;
     int ret = PAM_SESSION_ERR;
-    char *username;
+    const char *username;
     char *lockfile;
     char *tty;
 
-    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "pam_console open_session");
+    D(("called."));
+    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, TRUE, "pam_console open_session");
     _args_parse(argc, argv);
-    /* pam_get_user is really only for auth modules, not session modules */
-    pam_get_item(pamh, PAM_USER, CAST_ME_HARDER &username);
-    if (!username || !username[0]) return PAM_SESSION_ERR;
-    if (is_root(username)) return PAM_SUCCESS;
+    pam_get_user(pamh, &username, "login: ");
+    _pam_log(LOG_PID|LOG_AUTHPRIV, TRUE, "user is \"%s\"",
+	     username ? username : "(null)");
+    if (!username || !username[0]) {
+        _pam_log(LOG_PID|LOG_AUTHPRIV, TRUE, "user is \"%s\"",
+	         username ? username : "(null)");
+	return PAM_SESSION_ERR;
+    }
+    if (is_root(username)) {
+        _pam_log(LOG_PID|LOG_AUTHPRIV, TRUE, "user \"%s\" is root", username);
+	return PAM_SUCCESS;
+    }
     pam_get_item(pamh, PAM_TTY, CAST_ME_HARDER &tty);
-    if (!tty || !tty[0]) return PAM_SESSION_ERR;
+    if (!tty || !tty[0]) {
+        _pam_log(LOG_PID|LOG_AUTHPRIV, TRUE, "TTY not defined");
+	return PAM_SESSION_ERR;
+    }
 
     /* get configuration */
     if (!configfileparsed) { parse_file(consoleperms); configfileparsed = 1; }
 
     /* return success quietly if not a terminal login */
-    if (!check_console_name(tty, allow_nonroot)) return PAM_SUCCESS;
+    if (!check_console_name(tty, allow_nonroot_tty)) return PAM_SUCCESS;
 
     if (!lock_console(username)) got_console = 1;
 
@@ -353,9 +360,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (count < 0) ret = PAM_SESSION_ERR;
 
     if (got_console) {
-	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "%s is console user", username);
+	_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, TRUE, "%s is console user", username);
 	/* woohoo!  We got here first, grab ownership and perms... */
-	set_permissions(tty, username, allow_nonroot);
+	set_permissions(tty, username, allow_nonroot_tty);
 	/* errors will be logged and are not critical */
         ret = PAM_SUCCESS;
     }
@@ -380,15 +387,15 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     int count = 0;
     int err;
     int delete_consolelock = 0;
-    char *username = NULL;
+    const char *username = NULL;
     char *lockfile = NULL;
     char *consoleuser = NULL;
     char *tty;
     struct stat st;
 
+    D(("called."));
     _args_parse(argc, argv);
-    /* pam_get_user is really only for auth modules, not session modules */
-    pam_get_item(pamh, PAM_USER, CAST_ME_HARDER &username);
+    pam_get_user(pamh, &username, "login: ");
     if (!username || !username[0]) return PAM_SESSION_ERR;
     if (is_root(username)) return PAM_SUCCESS;
     pam_get_item(pamh, PAM_TTY, CAST_ME_HARDER &tty);
@@ -398,7 +405,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (!configfileparsed) { parse_file(consoleperms); configfileparsed = 1; }
 
     /* return success quietly if not a terminal login */
-    if (!check_console_name(tty, allow_nonroot)) return PAM_SUCCESS;
+    if (!check_console_name(tty, allow_nonroot_tty)) return PAM_SUCCESS;
 
     lockfile = _do_malloc(strlen(consolerefs) + strlen(username) + 2);
     sprintf(lockfile, "%s%s", consolerefs, username); /* trusted data */
@@ -411,14 +418,14 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	fd = open(consolelock, O_RDONLY);
 	if (fd != -1) {
 	    if (fstat (fd, &st)) {
-		_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+		_pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
 			"\"impossible\" fstat error on %s", consolelock);
 		err = PAM_SESSION_ERR; goto return_error;
 	    }
 	    consoleuser = _do_malloc(st.st_size+1);
 	    if (st.st_size) {
 		if (read (fd, consoleuser, st.st_size) == -1) {
-		    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+		    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
 			    "\"impossible\" read error on %s", consolelock);
 		    err = PAM_SESSION_ERR; goto return_error;
 		}
@@ -428,7 +435,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	    if (!strcmp(username, consoleuser)) {
 		delete_consolelock = 1;
-		reset_permissions(tty, allow_nonroot);
+		reset_permissions(tty, allow_nonroot_tty);
 		/* errors will be logged and at this stage we cannot do
 		 * anything about them...
 		 */
@@ -439,7 +446,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     count = use_count(lockfile, -1, 1);
     if (count < 1 && delete_consolelock) {
 	if (unlink(consolelock)) {
-	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0,
+	    _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, FALSE,
 		     "\"impossible\" unlink error on %s", consolelock);
 	    err = PAM_SESSION_ERR; goto return_error;
 	}

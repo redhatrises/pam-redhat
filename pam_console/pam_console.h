@@ -33,12 +33,12 @@ STATIC void
 parse_file(char *name);
 
 STATIC int
-check_console_name (char *consolename, int allow_nonroot);
+check_console_name (const char *consolename, int allow_nonroot);
 
 STATIC int
-set_permissions(char *consolename, char *username, int allow_nonroot);
+set_permissions(const char *consolename, const char *username, int allow_nonroot);
 
 STATIC int
-reset_permissions(char *consolename, int allow_nonroot);
+reset_permissions(const char *consolename, int allow_nonroot);
 
 #endif /* _PAM_CONSOLE_H */
