@@ -62,6 +62,7 @@ ifdef STATIC
 endif
 
 $(BINARY): $(BINSRC)
+	$(CC) $(CFLAGS) $(TARGET_ARCH) -o $@ $^ -Wl,-Bstatic $(LDFLAGS) -Wl,-Bdynamic -lc
 
 ifdef DYNAMIC
 $(LIBOBJD): $(LIBSRC)
