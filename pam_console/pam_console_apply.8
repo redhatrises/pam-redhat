@@ -16,7 +16,8 @@ owns them.
 .SH ARGUMENTS
 .IP -r
 Signals \fBpam_console_apply\fP to reset permissions.  The default is to set
-permissions so that the user has access to the devices.
+permissions so that the user listed in \fI/var/lock/console.lock\fP has access
+to the devices, and to reset permissions if no such file exists.
 .SH FILES
 \fI/var/lock/console.lock\fP
 .br
