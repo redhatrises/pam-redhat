@@ -565,6 +565,8 @@ main(int argc, char **argv)
 							    DEFAULT_TIMESTAMP_TIMEOUT) == PAM_SUCCESS) {
 						retval = 7;
 					}
+				} else {
+					retval = 7;
 				}
 			}
 		}
