@@ -108,7 +108,7 @@ libmisc_converse(pam_handle_t *pamh,
 	i = conv->conv(n_prompts, (const struct pam_message**) message_array,
 		       responses, conv->appdata_ptr);
 	if (responses == &drop_responses) {
-		maybe_free_responses(drop_responses, n_prompts);
+		libmisc_free_responses(drop_responses, n_prompts);
 	}
 
 	/* Clean up. */
