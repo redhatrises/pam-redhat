@@ -117,11 +117,11 @@ stringlist:	string	{$$ = g_slist_append(NULL, $1);}
 	|	stringlist string {$$ = g_slist_append($1, $2);}
 	;
 
-optstring:	string	{$$=$1}
-	|	/* empty */ {$$=NULL}
+optstring:	string	{$$=$1;}
+	|	/* empty */ {$$=NULL;}
 	;
 
-string:		STRING {$$=$1}
+string:		STRING {$$=$1;}
 
 %%
 
