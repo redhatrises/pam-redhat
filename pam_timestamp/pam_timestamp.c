@@ -522,8 +522,7 @@ main(int argc, char **argv)
 		tty = ttyname(STDERR_FILENO);
 	}
 	if ((tty == NULL) || (strlen(tty) == 0)) {
-		fprintf(stderr, "no controlling tty\n");
-		retval = 3;
+		tty = "unknown";
 	}
 
 	/* Get the name of the invoking (requesting) user. */
