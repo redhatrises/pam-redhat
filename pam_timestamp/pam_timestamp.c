@@ -429,7 +429,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		message_end = message + strlen(path) + 1 + sizeof(then);
 
 		/* Regenerate the MAC. */
-		hmac_sha1_generate_file(&mac, &maclen, TIMESTAMPKEY, -1, -1,
+		hmac_sha1_generate_file(&mac, &maclen, TIMESTAMPKEY, 0, 0,
 					message, message_end - message);
 		if ((mac == NULL) ||
 		    (memcmp(path, message, strlen(path)) != 0) ||
