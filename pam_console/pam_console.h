@@ -5,6 +5,7 @@
 #ifndef _PAM_CONSOLE_H
 #define _PAM_CONSOLE_H
 #include <glib.h>
+#include "chmod.h"
 
 typedef struct class_s class;
 struct class_s {

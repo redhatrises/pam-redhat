@@ -95,6 +95,10 @@ config:		classlist STRING classlist optstring optstring EOL {
 
 classlist:	OBRACKET string CBRACKET {
 		  class *c = g_hash_table_lookup(namespace, $2);
+		  if(!c) {
+		    g_critical("unknown class \"%s\" at line %d in %s\n", $2, lineno, filename);
+		    _exit(1);
+		  }
 		  $$ = c;
 		}
 	|	string {

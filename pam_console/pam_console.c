@@ -92,6 +92,8 @@ _args_parse(int argc, const char **argv)
 	    allow_nonroot_tty = 1;
 	else if (!strncmp(*argv,"permsfile=",10))
 	    strcpy(consoleperms,*argv+10);
+	else if (!strncmp(*argv,"fstab=",6))
+	    chmod_set_fstab(*argv+6);
 	else {
 	    _pam_log(LOG_ERR, FALSE,
 		     "_args_parse: unknown option; %s",*argv);

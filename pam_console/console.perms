@@ -43,18 +43,22 @@
 <dri>=/dev/dri/* /dev/nvidia*
 
 # permission definitions
-<console>  0660 <floppy>    0660 root.floppy
-<console>  0600 <sound>     0600 root
-<console>  0600 <cdrom>     0660 root.disk
-<console>  0600 <pilot>     0660 root.uucp
-<console>  0600 <jaz>       0660 root.disk
-<console>  0600 <zip>       0660 root.disk
-<console>  0600 <scanner>   0600 root
-<console>  0600 <fb>        0600 root
-<console>  0600 <kbd>       0600 root
-<console>  0600 <joystick>  0600 root
-<console>  0600 <v4l>       0600 root
-<console>  0700 <gpm>	    0700 root
+<console>  0660 <floppy>     0660 root.floppy
+<console>  0600 <sound>      0600 root
+<console>  0600 <cdrom>      0660 root.disk
+<console>  0600 <pilot>      0660 root.uucp
+<console>  0600 <jaz>        0660 root.disk
+<console>  0600 <zip>        0660 root.disk
+<console>  0600 <ls120>      0660 root.disk
+<console>  0600 <scanner>    0600 root
+<console>  0600 <camera>     0600 root
+<console>  0600 <memstick>   0600 root
+<console>  0600 <flash>      0600 root
+<console>  0600 <fb>         0600 root
+<console>  0600 <kbd>        0600 root
+<console>  0600 <joystick>   0600 root
+<console>  0600 <v4l>        0600 root
+<console>  0700 <gpm>	     0700 root
 
 <xconsole> 0600 /dev/console 0600 root.root
-<xconsole> 0600 <dri>	    0600 root
+<xconsole> 0600 <dri>	     0600 root

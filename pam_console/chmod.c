@@ -1,7 +1,7 @@
-/* This file is derived from chmod.c, savedir.c, and stpcpy.c, included
+/* This file is derived from chmod.c and stpcpy.c, included
    in the GNU fileutils distribution.  It has been changed to be a
    library specifically for use within the Red Hat pam_console module.
-   Changes Copyright 1999 Red Hat Software, Inc.
+   Changes Copyright 1999,2001 Red Hat, Inc.
  */
 
 /* chmod -- change permission modes of files
@@ -38,25 +38,6 @@
 #include "chmod.h"
 #include "modechange.h"
 
-/* savedir.c -- save the list of files in a directory in a string
-   Copyright (C) 1990 Free Software Foundation, Inc.
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
-
-/* Written by David MacKenzie <djm@gnu.ai.mit.edu>. */
-
 #define CLOSEDIR(d) closedir (d)
 
 #ifdef _D_NEED_STPCPY
@@ -89,6 +70,8 @@ stpcpy (char *dest, const char *src)
 #endif /* _D_NEED_STPCPY */
 
 /* end included files */
+
+static const char *fstab_filename = "/etc/fstab";
 
 static int change_dir __P ((const char *dir,
 			    const struct mode_change *changes,
@@ -139,6 +122,13 @@ change_file (const char *file, const struct mode_change *changes,
   return errors;
 }
 
+static void
+chmod_set_fstab(const char *fstab)
+{
+  fstab_filename = strdup(fstab);
+}
+
+
 /* If the directory is a filesystem listed in /etc/fstab, modify the
  * device special associated with that filesystem. */
 static int
@@ -149,7 +139,7 @@ change_dir (const char *dir, const struct mode_change *changes,
   FILE *fstab;
   struct mntent *mntent;
 
-  fstab = setmntent("/etc/fstab", "r");
+  fstab = setmntent(fstab_filename, "r");
 
   if (fstab == NULL)
     {

@@ -39,6 +39,10 @@ gain console locks and change permissions even if the TTY's owner is not root.
 .IP permsfile=\fIfilename\fP
 tells pam_console.so to get its permissions database from a different
 file than /etc/security/console.perms
+.IP fstab=\fIfilename\fP
+tells pam_console.so to read the table of configured filesystems from a
+file other than \fI/etc/fstab\fP when scanning \fIpermsfile\fP.  This file
+is used to map directories to device names.
 .\" .IP glob
 .\" \fBnot yet implemented\fP interpret strings as globs instead of
 .\" regexp expressions.

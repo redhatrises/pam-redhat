@@ -9,5 +9,6 @@
 #endif
 
 STATIC int chmod_files (const char *mode, uid_t user, gid_t group, char *filename, GSList *filelist);
+STATIC void chmod_set_fstab(const char *fstab);
 
 #endif /* _CHMOD_H */

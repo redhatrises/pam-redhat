@@ -44,13 +44,27 @@ int
 main(int argc, char **argv)
 {
 	int fd;
-	int i;
+	int i, c;
 	struct stat st;
 	char *consoleuser;
 	enum {Set, Reset} sense = Set;
 
-	if(argv[1] && !strcmp(argv[1], "-r")) {
-		sense = Reset;
+	while((c = getopt(argc, argv, "c:f:r")) != -1) {
+		switch(c) {
+			case 'c': strncpy(consoleperms, optarg, sizeof(consoleperms) - 1);
+				  consoleperms[sizeof(consoleperms) - 1] = '\0';
+				  break;
+			case 'f': chmod_set_fstab(optarg);
+				  break;
+			case 'r':
+				  sense = Reset;
+				  break;
+			default:
+				  fprintf(stderr, "usage: %s [-f /etc/fstab] "
+					  "[-c %s] [-r]\n", argv[0],
+					  consoleperms);
+				  exit(1);
+		}
 	}
 
 	parse_file(consoleperms);
