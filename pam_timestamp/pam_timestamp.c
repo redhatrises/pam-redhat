@@ -47,6 +47,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pwd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -531,12 +532,15 @@ main(int argc, char **argv)
 	}
 
 	do {
+		/* Sanity check the timestamp directory itself. */
 		if (retval == 0) {
 			if (check_dir_perms(TIMESTAMPDIR) != PAM_SUCCESS) {
 				retval = 5;
 			}
 		}
 
+		/* Sanity check the tty to make sure we should be checking
+		 * for timestamps which pertain to it. */
 		if (retval == 0) {
 			tty = check_tty(ttyname(STDIN_FILENO));
 			if (tty == NULL) {
@@ -572,23 +576,20 @@ main(int argc, char **argv)
 		}
 
 		if (dflag > 0) {
-			if (!feof(stdout)) {
-				if (retval != pretval) {
-					fprintf(stdout, "%d\n", retval);
-					fflush(stdout);
-				}
-				tv.tv_sec = CHECK_INTERVAL;
-				tv.tv_usec = 0;
-				FD_ZERO(&write_fds);
-				FD_SET(STDOUT_FILENO, &write_fds);
-				select(STDOUT_FILENO + 1,
-				       NULL, NULL, &write_fds,
-				       &tv);
-				pretval = retval;
-				retval = 0;
-			} else {
-				dflag = 0;
-			}
+			/* Send the would-be-returned value to our parent. */
+			signal(SIGPIPE, SIG_DFL);
+			fprintf(stdout, "%d\n", retval);
+			fflush(stdout);
+			/* Wait. */
+			tv.tv_sec = CHECK_INTERVAL;
+			tv.tv_usec = 0;
+			FD_ZERO(&write_fds);
+			FD_SET(STDOUT_FILENO, &write_fds);
+			select(STDOUT_FILENO + 1,
+			       NULL, NULL, &write_fds,
+			       &tv);
+			pretval = retval;
+			retval = 0;
 		}
 	} while (dflag > 0);
 
