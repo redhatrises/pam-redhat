@@ -70,11 +70,13 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 {
 	const char *user, *ruser, *tty;
 	const char *tdir = TIMESTAMPDIR;
-	char scratch[LINE_MAX];
+	char scratch[LINE_MAX > PATH_MAX ? LINE_MAX : PATH_MAX];
 	char *buf = NULL;
 	size_t bufsize = 0;
+	struct stat st;
 	struct passwd passwd, *pwd;
 	int i, debug = 0;
+
 	/* Parse arguments. */
 	for (i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "debug") == 0) {
@@ -88,6 +90,49 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 				syslog(LOG_DEBUG,
 				       MODULE ": storing timestamps in `%s'",
 				       tdir);
+			}
+		}
+	}
+	/* Check that the directory is "safe". */
+	memset(scratch, 0, sizeof(scratch));
+	for (i = 1; (tdir[0] != 0) && (tdir[i] != '\0'); i++) {
+		strncpy(scratch, tdir, i + 1);
+		if (scratch[i] == '/') {
+			if ((lstat(scratch, &st) == -1) && (errno != ENOENT)) {
+				syslog(LOG_ERR,
+				       MODULE ": unable to read `%s'",
+				       scratch);
+				return PAM_AUTH_ERR;
+			}
+			if (!S_ISDIR(st.st_mode)) {
+				syslog(LOG_ERR,
+				       MODULE ": `%s' is not a directory",
+				       scratch);
+				return PAM_AUTH_ERR;
+			}
+			if (S_ISLNK(st.st_mode)) {
+				syslog(LOG_ERR,
+				       MODULE ": `%s' is a symbolic link",
+				       scratch);
+				return PAM_AUTH_ERR;
+			}
+			if (st.st_uid != 0) {
+				syslog(LOG_ERR,
+				       MODULE ": `%s' owner UID != 0",
+				       scratch);
+				return PAM_AUTH_ERR;
+			}
+			if (st.st_gid != 0) {
+				syslog(LOG_ERR,
+				       MODULE ": `%s' owner GID != 0",
+				       scratch);
+				return PAM_AUTH_ERR;
+			}
+			if ((st.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
+				syslog(LOG_ERR,
+				       MODULE ": `%s' permissions are lax",
+				       scratch);
+				return PAM_AUTH_ERR;
 			}
 		}
 	}
