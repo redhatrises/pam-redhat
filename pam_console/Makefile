@@ -4,7 +4,7 @@
 # what you are doing!).
 #
 
-include ../../default.defs
+include ../../Make.Rules
 
 TITLE=pam_console
 

@@ -52,13 +52,13 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **ar
 	fp = fopen(filename, "r");
 	if(fp == NULL) {
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_ERR, "error opening \"%s\": ", filename,
+		syslog(LOG_ERR, "error opening \"%s\": %s", filename,
 		       strerror(errno));
 		closelog();
 		return PAM_SYSTEM_ERR;
 	}
 
-	if(pam_get_item(pamh, PAM_USER, &user) != PAM_SUCCESS) {
+	if(pam_get_item(pamh, PAM_USER, (const void**) &user) != PAM_SUCCESS) {
 		openlog(MODULE_NAME, LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "user name not specified yet");
 		closelog();

@@ -10,7 +10,6 @@
 #include <pwd.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <features.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

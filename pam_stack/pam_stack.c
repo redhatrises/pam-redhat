@@ -2,7 +2,7 @@
  * A module for Linux-PAM that will divert to another file and use configuration
  * information from it, percolating the result code back up.  Recursion is fun.
  *
- * Copyright (c) 2000 Red Hat, Inc.
+ * Copyright (c) 2000,2001 Red Hat, Inc.
  * Written by Nalin Dahyabhai <nalin@redhat.com>
  * Portions also Copyright (c) 2000 Dmitry V. Levin
  *
@@ -25,9 +25,10 @@
 #define PAM_SM_SESSION
 #define PAM_SM_ACCOUNT
 #define PAM_SM_PASSWD
+
 #define PAM_CONST const
 
-/* Oh yeah, this is cheap. */
+#include "../../_pam_aconf.h"
 #include "../../libpam/include/security/_pam_types.h"
 #include "../../libpam/pam_private.h"
 #include <sys/syslog.h>
@@ -128,7 +129,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	/* Parse arguments. */
 	for(i = 0; i < argc; i++) {
 		if(strncmp("debug", argv[i], 5) == 0) {
-			char *stack_description = NULL;
+			const char *stack_description = NULL;
 			debug = 1;
 			switch(which_stack) {
 				case PAM_AUTHENTICATE:
@@ -222,7 +223,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 					LOG_AUTHPRIV);
 				syslog(LOG_DEBUG, "setting item %s to \"%s\"",
 				       defined_items[i].name,
-				       defined_items[i].item);
+				       (const char*)defined_items[i].item);
 				closelog();
 			}
 		}
@@ -252,7 +253,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	_pam_start_handlers(sub_pamh);
 	if(_pam_init_handlers(sub_pamh) != PAM_SUCCESS) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_ERR, "_pam_init_handlers() returned %s",
+		syslog(LOG_ERR, "_pam_init_handlers() returned %d (%s)",
 		       defined_items[i].num, pam_strerror(pamh, ret));
 		closelog();
 		return PAM_SYSTEM_ERR;
@@ -287,9 +288,9 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	sub_pamh->data = pamh->data;
 
 	/* This isn't exactly Correct, but it does seem to work without getting
-	 * us into infinite recursion like using set_item() would. */
+	 * us into infinite recursion which using set_item() would. */
 	if(parent_service && *parent_service)
-		sub_pamh->service_name = *parent_service;
+		sub_pamh->service_name = strdup(*parent_service);
 
 	/* Now call the substack. */
 	if(debug) {
@@ -337,7 +338,8 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		if(debug && (defined_items[i].num != PAM_CONV)) {
 			openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 			syslog(LOG_DEBUG, "setting parent item %s to \"%s\"",
-			       defined_items[i].name, defined_items[i].item);
+			       (const char*)defined_items[i].name,
+			       (const char*)defined_items[i].item);
 			closelog();
 		}
 		ret = pam_set_item(pamh, defined_items[i].num,

@@ -5,6 +5,9 @@
  */
 
 #define	PAM_SM_SESSION
+
+#include <_pam_aconf.h>
+
 #include <security/pam_modules.h>
 
 #include <syslog.h>

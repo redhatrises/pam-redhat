@@ -1,17 +1,14 @@
 # $Id$
-CFLAGS+=-D_REENTRANT
-LDFLAGS=--shared
 
-OUT=pam_chroot.so
+include ../../Make.Rules
 
-all:	$(OUT)
+TITLE=pam_chroot
 
-%.so: %.o
-	$(LD_D) -o $@ $<
+LOCAL_CONFILE=./chroot.conf
+INSTALLED_CONFILE=$(SCONFIGD)/chroot.conf
 
-clean:
-	rm -f *.o $(OUT)
+MODULE_SIMPLE_INSTALL=bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONFILE)" "$(TITLE)" "$(LOCAL_CONFILE)"
+MODULE_SIMPLE_REMOVE=rm -f $(FAKEROOT)$(INSTALLED_CONFILE)
+MODULE_SIMPLE_CLEAN=rm -f ./.ignore_age
 
-install:
-	install -m 755 $(OUT) $(FAKEROOT)$(SECUREDIR)
-	install -m 644 chroot.conf $(FAKEROOT)$(SCONFIGED)
+include ../Simple.Rules
