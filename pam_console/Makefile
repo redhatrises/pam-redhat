@@ -21,19 +21,22 @@ LOCKMODE = 755
 LIBS +=  $(GLIB_LIBS) -L../pammodutil -lpammodutil
 LDFLAGS = $(LIBS)
 
-BINARY = pam_console_apply
-BINSRC = $(TITLE)_apply.c
-LOCAL_CONFILE = console.perms
-INSTALLED_CONFILE = $(SCONFIGD)/console.perms
+LOCAL_CONF1 = console.perms
+INSTALLED_CONF1 = $(SCONFIGD)/console.perms
+LOCAL_CONF2 = console.handlers
+INSTALLED_CONF2 = $(SCONFIGD)/console.handlers
 MAN5 = console.apps.5 console.perms.5
 MAN8 = pam_console.8 pam_console_apply.8
 
 CFLAGS += $(GLIB_CFLAGS) -DLOCKDIR=\"$(LOCKDIR)\" -I../pammodutil/include
-
 FLEX_OPTS = -Cr
 BISON_OPTS = -d
 
-LIBSRC = $(TITLE).c
+LIBSRC = pam_console.c pam_console.h chmod.c modechange.c regerr.c config.lex.c config.tab.c handlers.c
+BINSRC = pam_console_apply.c pam_console.h chmod.c modechange.c regerr.c config.lex.c config.tab.c
+
+BINARY = $(TITLE)_apply
+
 LIBOBJ = $(TITLE).o
 LIBOBJD = $(addprefix dynamic/,$(LIBOBJ))
 LIBOBJS = $(addprefix static/,$(LIBOBJ))
@@ -108,7 +111,10 @@ ifdef MAN8
 	test -d $(FAKEROOT)$(MANDIR)/man8 || $(MKDIR) $(FAKEROOT)$(MANDIR)/man8
 	$(INSTALL) -m $(MANMODE) $(MAN8) $(FAKEROOT)$(MANDIR)/man8/
 endif
-	$(MKDIR) -m $(LOCKMODE) $(FAKEROOT)$(LOCKDIR) $(FAKEROOT)/$(SCONFIGD)/console.apps && bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONFILE)" "$(TITLE)" "$(LOCAL_CONFILE)"
+	if $(MKDIR) -m $(LOCKMODE) $(FAKEROOT)$(LOCKDIR) $(FAKEROOT)/$(SCONFIGD)/console.apps ; then
+	    bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONF1)" "$(TITLE)" "$(LOCAL_CONF1)"
+	    bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONF2)" "$(TITLE)" "$(LOCAL_CONF2)"
+	fi
 	test -d  $(FAKEROOT)$(SUPLEMENTED) || install -m 755 -d $(FAKEROOT)$(SUPLEMENTED)
 	install -m 555 $(BINARY) $(FAKEROOT)$(SUPLEMENTED)
 
@@ -134,5 +140,3 @@ config.lex.c: config.l config.tab.c
 	flex $(FLEX_OPTS) -o$@ -P_pc_yy $<
 	sh ./sed-static $@
 
-$(LIBSRC): pam_console.h chmod.c modechange.c regerr.c config.lex.c config.tab.c
-$(BINSRC): pam_console.h chmod.c modechange.c regerr.c config.lex.c config.tab.c

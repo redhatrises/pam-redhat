@@ -38,6 +38,7 @@
 #include <stdio.h>
 #define STATIC static
 #include "pam_console.h"
+#include "handlers.h"
 
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
@@ -53,6 +54,7 @@ static char consolelock[PATH_MAX] = LOCKDIR "/console.lock";
 static char consolerefs[PATH_MAX] = LOCKDIR "/";
 static char consoleapps[PATH_MAX] = "/etc/security/console.apps/";
 static char consoleperms[PATH_MAX] = "/etc/security/console.perms";
+static char consolehandlers[PATH_MAX] = "/etc/security/console.handlers";
 static int configfileparsed = 0;
 static int debug = 0;
 static int allow_nonroot_tty = 0;
@@ -93,6 +95,8 @@ _args_parse(int argc, const char **argv)
 	    allow_nonroot_tty = 1;
 	else if (!strncmp(*argv,"permsfile=",10))
 	    strcpy(consoleperms,*argv+10);
+	else if (!strncmp(*argv,"handlersfile=",13))
+	    strcpy(consolehandlers,*argv+13);
 	else if (!strncmp(*argv,"fstab=",6))
 	    chmod_set_fstab(*argv+6);
 	else {
@@ -405,7 +409,11 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     }
 
     /* get configuration */
-    if (!configfileparsed) { parse_file(consoleperms); configfileparsed = 1; }
+    if (!configfileparsed) { 
+        parse_file(consoleperms);
+        console_parse_handlers(consolehandlers);
+        configfileparsed = 1; 
+    }
 
     /* return success quietly if not a terminal login */
     if (!check_console_name(tty, allow_nonroot_tty, TRUE)) return PAM_SUCCESS;
@@ -419,11 +427,14 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	ret = PAM_SESSION_ERR;
     }
     else if (got_console) {
+	int rv;
 	_pam_log(LOG_DEBUG, TRUE, "%s is console user", username);
 	/* woohoo!  We got here first, grab ownership and perms... */
 	set_permissions(pamh, tty, username, allow_nonroot_tty, NULL);
 	/* errors will be logged and are not critical */
-    	ret = PAM_SUCCESS;
+	rv = console_run_handlers(TRUE, username, tty);
+	if (rv != PAM_SUCCESS)
+	    _pam_log(LOG_ERR, FALSE, "console handlers returned error");
     }
     
     free(lockfile);
@@ -466,7 +477,11 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (!tty || !tty[0]) return PAM_SESSION_ERR;
 
     /* get configuration */
-    if (!configfileparsed) { parse_file(consoleperms); configfileparsed = 1; }
+    if (!configfileparsed) {
+        parse_file(consoleperms);
+        console_parse_handlers(consolehandlers);
+        configfileparsed = 1;
+    }
 
     /* return success quietly if not a terminal login */
     if (!check_console_name(tty, allow_nonroot_tty, FALSE)) return PAM_SUCCESS;
@@ -501,11 +516,15 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	    close (fd);
 
 	    if (!strcmp(username, consoleuser)) {
+		int rv;
 		delete_consolelock = 1;
 		reset_permissions(pamh, tty, allow_nonroot_tty, NULL);
 		/* errors will be logged and at this stage we cannot do
 		 * anything about them...
 		 */
+	 	rv = console_run_handlers(FALSE, username, tty);
+    		if (rv != PAM_SUCCESS)
+		    _pam_log(LOG_ERR, FALSE, "console handlers returned error");
 	    }
 	} else {
 	    /* didn't open file */
@@ -549,9 +568,9 @@ struct pam_module _pam_console_modstruct = {
 /* end of module definition */
 
 /* supporting functions included from other .c files... */
-
 #include "regerr.c"
 #include "chmod.c"
 #include "modechange.c"
 #include "config.lex.c"
 #include "config.tab.c"
+#include "handlers.c"

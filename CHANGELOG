@@ -7,6 +7,7 @@ without autoconf support.
 0.78-4: 
 
 * Merged fix for gcc4 compilation and config file parsing from dist
+* Added functionality for executing binaries when locking/unlocking console
 
 0.78-3: Wed Jan 12 2005
 

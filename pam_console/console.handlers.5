@@ -1,0 +1,36 @@
+.\" Copyright 2005 Red Hat Software, Inc.
+.\" Written by Tomas Mraz <tmraz@redhat.com>
+.TH console.handlers 5 2005/3/9 "Red Hat" "System Administrator's Manual"
+.SH NAME
+console.handlers \- file specifying handlers of console lock and unlock events
+.SH DESCRIPTION
+/etc/security/console.handlers determines which programs will be run when an
+user obtains the console lock at login time, and when the user loses it
+on log out. It is read by the pam_console module.
+
+The format is:
+
+\fBhandler-filename\fP \fBlock\fP\fI|\fP\fBunlock\fP \fI[\fP\fBflag ...\fP\fI]\fP
+
+Where \fBhandler-filename\fP is a name of the executable to be run, \fBlock\fP or
+\fBunlock\fP specifies on which event it should be run, and flags specify how
+should pam_console call it.
+.SH FLAGS
+.IP logfail
+The pam_console module should log error to the system log if the return value of the
+handler is not zero or if the handler can not be executed.
+.IP wait
+The pam_console should wait for the handler to exit before continuing.
+.IP setuid
+The handler should be executed with uid/gid of the user which obtained the
+console lock.
+.IP tty
+The handler will get a tty name as obtained from PAM as a parameter.
+.IP user
+The handler will get an user name as obtained from PAM as a parameter.
+.PP
+Anything else will be added directly as a parameter to the handler executable.
+.SH "SEE ALSO"
+.BR pam_console (8)
+.SH AUTHOR
+Tomas Mraz <tmraz@redhat.com>

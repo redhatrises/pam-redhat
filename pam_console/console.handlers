@@ -1,0 +1,9 @@
+# This file is provided for configuration of handlers which will be 
+# executed when user obtains console lock and when he loses it.
+#
+# Format:
+# binary lock|unlock flag flag ...
+# See man console.handlers
+# Example:
+#echo lock wait Locking console for user on tty
+#touch unlock wait /tmp/console-unlocked

@@ -128,8 +128,7 @@ string:		STRING {$$=$1;} ;
 
 /* exported functions */
 
-/* parse a file given by a file descriptor open for reading, then
-   close the file it applies to */
+/* parse a file given by a name */
 STATIC void
 parse_file(char *name) {
   FILE *infile;
