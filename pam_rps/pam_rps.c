@@ -1,7 +1,7 @@
 /******************************************************************************
  * A truly challenge-response module for PAM.
  *
- * Copyright (c) 2003 Red Hat, Inc.
+ * Copyright (c) 2003,2004 Red Hat, Inc.
  * Written by Nalin Dahyabhai <nalin@redhat.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@
  *
  */
 
+#include "../config.h"
 #include <sys/types.h>
 #include <fcntl.h>
 #include <stdlib.h>
