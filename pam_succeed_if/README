@@ -34,9 +34,9 @@ pam_succeed_if:
 		!~		- Wildcard mismatch.
 		ingroup		- Group membership check. [*]
 		notingroup	- Group non-membership check. [*]
+		owns		- File ownership check. [*]
 
-		* The "ingroup" and "notingroup" operators should only be
-		  used with the USER attribute.
+		* These operators should only be used with the USER attribute.
 
 	Examples:
 
@@ -58,6 +58,7 @@ RECOGNIZED ARGUMENTS:
 			being authenticated
 	quiet_success	don't log condition successes
 	quiet_failure	don't log condition failures
+	quiet           don't log either condition successes or failures
 
 MODULE SERVICES PROVIDED:
 	authentication, account management

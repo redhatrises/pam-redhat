@@ -226,6 +226,22 @@ evaluate_notingroup(pam_handle_t *pamh, const char *user, const char *group)
 	}
 	return PAM_AUTH_ERR;
 }
+/* Return PAM_SUCCESS if the user owns the indicated file. */
+static int
+evaluate_owns(pam_handle_t *pamh, const char *user, const char *path)
+{
+	struct stat st;
+	struct passwd *pwd;
+	if (lstat(path, &st) == 0) {
+		pwd = libmisc_getpwnam(pamh, user);
+		if (pwd != NULL) {
+			if (st.st_uid == pwd->pw_uid) {
+				return PAM_SUCCESS;
+			}
+		}
+	}
+	return PAM_AUTH_ERR;
+}
 
 /* Match a triple. */
 static int
@@ -322,6 +338,10 @@ evaluate(pam_handle_t *pamh, int debug,
 	if (strcasecmp(qual, "notingroup") == 0) {
 		return evaluate_notingroup(pamh, pwd->pw_name, right);
 	}
+	/* User owns the named file. */
+	if (strcasecmp(qual, "owns") == 0) {
+		return evaluate_owns(pamh, pwd->pw_name, right);
+	}
 	/* Fail closed. */
 	return PAM_SERVICE_ERR;
 }
@@ -334,7 +354,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	struct passwd *pwd;
 	gid_t *grouplist = NULL;
 	int grlistlen = 2;
-	int ret, i, count, debug, quiet_success, quiet_failure, use_uid;
+	int ret, i, debug, quiet_success, quiet_failure, use_uid;
 	const char *left, *right, *qual;
 
 	/* Get the user prompt. */
@@ -355,6 +375,10 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			quiet_success++;
 		}
 		if (strcmp(argv[i], "quiet_failure") == 0) {
+			quiet_failure++;
+		}
+		if (strcmp(argv[i], "quiet") == 0) {
+			quiet_success++;
 			quiet_failure++;
 		}
 		if (strcmp(argv[i], "use_uid") == 0) {
@@ -408,7 +432,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	/* Walk the argument list. */
-	i = count = 0;
+	i = 0;
 	left = qual = right = NULL;
 	while (i <= argc) {
 		if ((left != NULL) && (qual != NULL) && (right != NULL)) {
@@ -457,23 +481,24 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			i++;
 			continue;
 		}
+		if ((i < argc) && (strcmp(argv[i], "quiet") == 0)) {
+			i++;
+			continue;
+		}
 		if ((i < argc) && (strcmp(argv[i], "use_uid") == 0)) {
 			i++;
 			continue;
 		}
 		if ((i < argc) && (left == NULL)) {
 			left = argv[i++];
-			count++;
 			continue;
 		}
 		if ((i < argc) && (qual == NULL)) {
 			qual = argv[i++];
-			count++;
 			continue;
 		}
 		if ((i < argc) && (right == NULL)) {
 			right = argv[i++];
-			count++;
 			continue;
 		}
 		i++;
