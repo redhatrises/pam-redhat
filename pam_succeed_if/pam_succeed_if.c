@@ -1,7 +1,7 @@
 /******************************************************************************
  * A simple user-attribute based module for PAM.
  *
- * Copyright (c) 2003 Red Hat, Inc.
+ * Copyright (c) 2003,2004 Red Hat, Inc.
  * Written by Nalin Dahyabhai <nalin@redhat.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -330,8 +330,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	const char *user;
 	struct passwd *pwd;
 	gid_t *grouplist = NULL;
-	size_t grlistlen = 2;
-	int ret, i, count, use_uid, debug;
+	int grlistlen = 2;
+	int ret, i, count, debug, quiet_success, quiet_failure, use_uid;
 	const char *left, *right, *qual;
 
 	/* Get the user prompt. */
@@ -340,9 +340,19 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		prompt = "login: ";
 	}
 
-	for (use_uid = 0, debug = 0, i = 0; i < argc; i++) {
+	debug = 0;
+	quiet_failure = 0;
+	quiet_success = 0;
+	use_uid = 0;
+	for (i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "debug") == 0) {
 			debug++;
+		}
+		if (strcmp(argv[i], "quiet_success") == 0) {
+			quiet_success++;
+		}
+		if (strcmp(argv[i], "quiet_failure") == 0) {
+			quiet_failure++;
 		}
 		if (strcmp(argv[i], "use_uid") == 0) {
 			use_uid++;
@@ -402,16 +412,45 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			ret = evaluate(pamh, debug,
 				       left, qual, right,
 				       pwd, grouplist, grlistlen);
-			if (ret != PAM_SUCCESS) {
-				log_error(LOG_INFO,
-					  "requirement \"%s %s %s\" "
-					  "not met by user \"%s\"",
-					  left, qual, right, user);
+			if (ret == PAM_SUCCESS) {
+				if (!quiet_success) {
+					log_error(LOG_INFO,
+						  "requirement \"%s %s %s\" "
+						  "met by user \"%s\"",
+						  left, qual, right, user);
+				} else
+				if (debug) {
+					log_debug(LOG_DEBUG,
+						  "requirement \"%s %s %s\" "
+						  "met by user \"%s\"",
+						  left, qual, right, user);
+				}
+			} else {
+				if (!quiet_failure) {
+					log_error(LOG_INFO,
+						  "requirement \"%s %s %s\" "
+						  "not met by user \"%s\"",
+						  left, qual, right, user);
+				} else
+				if (debug) {
+					log_debug(LOG_DEBUG,
+						  "requirement \"%s %s %s\" "
+						  "not met by user \"%s\"",
+						  left, qual, right, user);
+				}
 				break;
 			}
 			left = qual = right = NULL;
 		}
 		if ((i < argc) && (strcmp(argv[i], "debug") == 0)) {
+			i++;
+			continue;
+		}
+		if ((i < argc) && (strcmp(argv[i], "quiet_failure") == 0)) {
+			i++;
+			continue;
+		}
+		if ((i < argc) && (strcmp(argv[i], "quiet_success") == 0)) {
 			i++;
 			continue;
 		}

@@ -56,7 +56,8 @@ RECOGNIZED ARGUMENTS:
 	use_uid 	perform checks on the account of the user under whose
 			UID the application is running instead of the user
 			being authenticated
-
+	quiet_success	don't log condition successes
+	quiet_failure	don't log condition failures
 
 MODULE SERVICES PROVIDED:
 	authentication, account management
