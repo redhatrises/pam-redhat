@@ -1,7 +1,7 @@
 /******************************************************************************
  * A truly challenge-response module for PAM.
  *
- * Copyright (c) 2003,2004 Red Hat, Inc.
+ * Copyright (c) 2003 Red Hat, Inc.
  * Written by Nalin Dahyabhai <nalin@redhat.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,15 +37,15 @@
  *
  */
 
-#include "../config.h"
 #include <sys/types.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <errno.h>
 #include <security/pam_modules.h>
-#include "../lib/libmisc.h"
+#include <security/_pam_macros.h>
 
 #define MODULE_PREFIX "pam_rps: "
 
@@ -58,14 +58,18 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		"\x73\x63\x69\x73\x73\x6f\x72\x73"};
 	char prompt_text[32] = "";
 	const char *want = "";
-	struct pam_message message = {
+	const struct pam_message message = {
 		PAM_PROMPT_ECHO_OFF,
 		prompt_text,
+	};
+	const struct pam_message *messages[] = {
+		&message,
 	};
 	struct pam_response *responses = NULL;
 
 	int debug = 0;
 
+	struct pam_conv *conv;
 	int ret, fd, r, i;
 	unsigned char c;
 
@@ -74,6 +78,18 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			debug = 1;
 			break;
 		}
+	}
+
+	ret = pam_get_item(pamh, PAM_CONV, (const void **) &conv);
+	if (ret != PAM_SUCCESS) {
+		syslog(LOG_AUTHPRIV | LOG_CRIT,
+		       MODULE_PREFIX "error determining user name");
+		return ret;
+	}
+	if ((conv == NULL) || (conv->conv == NULL)) {
+		syslog(LOG_AUTHPRIV | LOG_CRIT,
+		       MODULE_PREFIX "conversation error");
+		return PAM_CONV_ERR;
 	}
 
 	r = -1;
@@ -90,12 +106,15 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			c = 0;
 			do {
 				ret = read(fd, &c, 1);
-			} while ((ret == 1) && (c == 0xff));
+			} while ( ((ret ==  1) && (c == 0xff)) ||
+                                  ((ret == -1) && (errno == EINTR)) );
 			/* We drop 0xff here to avoid a variation on
 			 * Bleichenbacher's attack. */
 			r = c / 85;
 			close(fd);
 		}
+		else /* Something is wrong with /dev/urandom */
+			return PAM_CONV_ERR;
 	}
 	switch (r) {
 	case 0:
@@ -116,7 +135,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		       "expected response is \"%s\"", prompt_text, want);
 	}
 	strcat(prompt_text, ": ");
-	ret = libmisc_converse(pamh, &message, 1, &responses);
+	ret = conv->conv(1, messages, &responses, conv->appdata_ptr);
 	if (ret != PAM_SUCCESS) {
 		syslog(LOG_AUTHPRIV | LOG_CRIT,
 		       MODULE_PREFIX "conversation error");
@@ -130,6 +149,9 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	} else {
 		ret = PAM_AUTH_ERR;
 	}
+        if (responses) {
+            _pam_drop_reply(responses, 1);
+        }
 	return ret;
 }
 

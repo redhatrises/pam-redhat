@@ -387,7 +387,16 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 
 		memset(stack_this, 0, sizeof(struct stack_data));
 		stack_this->service = _pam_strdup(service);
+		if (stack_this->service == NULL) {
+			_pam_drop(stack_this);
+			return PAM_BUF_ERR;
+		}
 		stack_this->pamh = calloc(1, sizeof(pam_handle_t));
+		if (stack_this->pamh == NULL) {
+			_pam_drop(stack_this->service);
+			_pam_drop(stack_this);
+			return PAM_BUF_ERR;
+		}
 
 		/* Create an environment for the child. */
 		if(debug) {
@@ -401,6 +410,9 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 			syslog(LOG_ERR, "_pam_make_env() returned %s",
 			       pam_strerror(stack_this->pamh, ret));
 			closelog();
+			_pam_drop(stack_this->service);
+			_pam_drop(stack_this->pamh);
+			_pam_drop(stack_this);
 			return PAM_SYSTEM_ERR;
 		}
 
@@ -411,6 +423,9 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 			syslog(LOG_ERR, "pam_set_item(PAM_SERVICE) returned %d (%s)",
 			       ret, pam_strerror(stack_this->pamh, ret));
 			closelog();
+			_pam_drop(stack_this->service);
+			_pam_drop(stack_this->pamh);
+			_pam_drop(stack_this);
 			return PAM_SYSTEM_ERR;
 		}
 
@@ -422,14 +437,22 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 			syslog(LOG_ERR, "_pam_init_handlers() returned %d (%s)",
 			       ret, pam_strerror(stack_this->pamh, ret));
 			closelog();
+			_pam_drop(stack_this->service);
+			_pam_drop(stack_this->pamh);
+			_pam_drop(stack_this);
 			return PAM_SYSTEM_ERR;
 		}
 
 		/* Insert the data item at the end of the stack list, or make
 		 * it the head if we don't have one yet. */
 		if(stack_data == NULL) {
-			pam_set_data(pamh, STACK_DATA_NAME, stack_this,
-				     _pam_stack_cleanup);
+			if (pam_set_data(pamh, STACK_DATA_NAME, stack_this,
+				     _pam_stack_cleanup) != PAM_SUCCESS) {
+					_pam_drop(stack_this->service);
+        				_pam_drop(stack_this->pamh);
+                			_pam_drop(stack_this);
+					return PAM_SYSTEM_ERR;
+				}
 		} else {
 			while(stack_data->next != NULL) {
 				stack_data = stack_data->next;

@@ -9,3 +9,4 @@ without autoconf support.
 * Backported some changes from head (tmraz)
 * pam_localuser, pam_succeed_if, pam_xauth are no longer developed here
   - they were accepted to upstream Linux PAM repository
+* Applied fixes by Steve Grubb (tmraz)

@@ -336,9 +336,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     int got_console = 0;
     int count = 0;
     int ret = PAM_SESSION_ERR;
-    const char *username, *user_prompt;
+    const char *username = NULL, *user_prompt;
     char *lockfile;
-    const char *tty;
+    const char *tty = NULL;
 
     D(("called."));
     _pam_log(LOG_ERR, TRUE, "pam_console open_session");
@@ -413,7 +413,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     const char *username = NULL, *user_prompt;
     char *lockfile = NULL;
     char *consoleuser = NULL;
-    const char *tty;
+    const char *tty = NULL;
     struct stat st;
 
     D(("called."));
@@ -453,6 +453,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	    }
 	    consoleuser = _do_malloc(st.st_size+1);
 	    if (st.st_size) {
+		buf[0] = 0; /* if read returns eof, need atoi to give us 0 */
 		if (_pammodutil_read (fd, consoleuser, st.st_size) == -1) {
 		    _pam_log(LOG_ERR, FALSE,
 			    "\"impossible\" read error on %s", consolelock);

@@ -421,6 +421,10 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		/* Read the file contents. */
 		message = malloc(st.st_size);
 		count = 0;
+                if (!message) {
+			close(fd);
+			return PAM_BUF_ERR;
+		}
 		while (count < st.st_size) {
 			i = read(fd, message + count, st.st_size - count);
 			if ((i == 0) || (i == -1)) {
@@ -432,6 +436,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			syslog(LOG_NOTICE, MODULE ": error reading timestamp "
 				"file `%s'", path);
 			close(fd);
+			free(message);
 			return PAM_AUTH_ERR;
 		}
 		message_end = message + strlen(path) + 1 + sizeof(then);
@@ -445,6 +450,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
 				"corrupted", path);
 			close(fd);
+			free(message);
 			return PAM_AUTH_ERR;
 		}
 		free(mac);
@@ -454,6 +460,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		/* Compare the dates. */
 		now = time(NULL);
 		if (timestamp_good(then, now, interval) == PAM_SUCCESS) {
+			close(fd);
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
 			       "only %ld seconds old, allowing access to %s "
 			       "for UID %ld", path, (long) (now - st.st_mtime),
@@ -463,6 +470,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			}
 			return PAM_SUCCESS;
 		} else {
+			close(fd);
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' has "
 			       "unacceptable age (%ld seconds), disallowing "
 			       "access to %s for UID %ld",

@@ -36,10 +36,6 @@
  *
  */
 /* See RFC 2104 for descriptions. */
-
-#ident "$Id$"
-
-#include "../config.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -79,6 +75,11 @@ hmac_key_create(const char *filename, size_t key_size, uid_t owner, gid_t group)
 	/* Read random data for use as the key. */
 	key = malloc(key_size);
 	count = 0;
+	if (!key) {
+		close(keyfd);
+		close(randfd);
+		return;
+	}
 	while (count < key_size) {
 		i = read(randfd, key + count, key_size - count);
 		if ((i == 0) || (i == -1)) {
@@ -133,16 +134,22 @@ hmac_key_read(const char *filename, size_t default_key_size,
 					owner, group);
 			keyfd = open(filename, O_RDONLY);
 		}
+		if (keyfd == -1)
+			return;
 	}
 
 	/* If we failed to open the file, we're done. */
-	if ((keyfd == -1) || (fstat(keyfd, &st) == -1)) {
+	if (fstat(keyfd, &st) == -1) {
 		close(keyfd);
 		return;
 	}
 
 	/* Read the contents of the file. */
 	tmp = malloc(st.st_size);
+	if (!tmp) {
+		close(keyfd);
+		return;
+	}
 
 	count = 0;
 	while (count < st.st_size) {
