@@ -411,11 +411,11 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			}
 			left = qual = right = NULL;
 		}
-		if (strcmp(argv[i], "debug") == 0) {
+		if ((i < argc) && (strcmp(argv[i], "debug") == 0)) {
 			i++;
 			continue;
 		}
-		if (strcmp(argv[i], "use_uid") == 0) {
+		if ((i < argc) && (strcmp(argv[i], "use_uid") == 0)) {
 			i++;
 			continue;
 		}
