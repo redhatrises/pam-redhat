@@ -55,6 +55,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <utmp.h>
 #include "hmacsha1.h"
 
 #include "../../_pam_aconf.h"
@@ -190,17 +191,68 @@ timestamp_good(time_t then, time_t now, time_t interval)
 	return PAM_AUTH_ERR;
 }
 
+static int
+check_login_time(const char *ruser, time_t timestamp) 
+{
+	struct utmp utbuf, *ut;
+	time_t oldest_login = 0;
+
+	setutent();
+	while(!getutent_r(&utbuf, &ut)) {
+		if (ut->ut_type != USER_PROCESS) {
+			continue;
+		}
+		if (strncmp(ruser, ut->ut_user, sizeof(ut->ut_user) != 0)) {
+			continue;
+		}
+		if (oldest_login == 0 || oldest_login > ut->ut_tv.tv_sec) {
+			oldest_login = ut->ut_tv.tv_sec;
+		}
+	}
+	endutent();
+	if(oldest_login == 0 || timestamp < oldest_login) {
+		return PAM_AUTH_ERR;
+	}
+	return PAM_SUCCESS;
+}
+
 #ifndef PAM_TIMESTAMP_MAIN
+static int
+get_ruser(pam_handle_t *pamh, char *ruserbuf, int ruserbuflen)
+{
+	const char *ruser;
+	struct passwd *pwd;
+
+	if (ruserbuf == NULL || ruserbuflen < 1)
+		return -2;
+	/* Get the name of the source user. */
+	if (pam_get_item(pamh, PAM_RUSER, (const void**)&ruser) != PAM_SUCCESS) {
+		ruser = NULL;
+	}
+	if ((ruser == NULL) || (strlen(ruser) == 0)) {
+		/* Barring that, use the current RUID. */
+		pwd = _pammodutil_getpwuid(pamh, getuid());
+		if (pwd != NULL) {
+			ruser = pwd->pw_name;
+		}
+	}	
+	if (ruser == NULL || strlen(ruser) >= ruserbuflen) {
+		*ruserbuf = '\0';
+		return -1;
+	}
+	strcpy(ruserbuf, ruser);
+	return 0;
+}	    
+
 /* Get the path to the timestamp to use. */
 static int
 get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		   char *path, size_t len)
 {
-	const char *user, *ruser, *tty;
+	const char *user, *tty;
 	const char *tdir = TIMESTAMPDIR;
 	const char *user_prompt;
-	char scratch[BUFLEN];
-	struct passwd *pwd;
+	char ruser[BUFLEN];
 	int i, debug = 0;
 
 	/* Parse arguments. */
@@ -237,21 +289,7 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		syslog(LOG_DEBUG, MODULE ": becoming user `%s'", user);
 	}
 	/* Get the name of the source user. */
-	if (pam_get_item(pamh, PAM_RUSER, (const void**)&ruser) != PAM_SUCCESS) {
-		ruser = NULL;
-	}
-	if ((ruser == NULL) || (strlen(ruser) == 0)) {
-		/* Barring that, use the current RUID. */
-		pwd = _pammodutil_getpwuid(pamh, getuid());
-		if (pwd != NULL) {
-			if (strlen(pwd->pw_name) < sizeof(scratch)) {
-				strncpy(scratch, pwd->pw_name, sizeof(scratch));
-				scratch[sizeof(scratch) - 1] = '\0';
-				ruser = scratch;
-			}
-		}
-	}
-	if ((ruser == NULL) || (strlen(ruser) == 0)) {
+	if (get_ruser(pamh, ruser, sizeof(ruser)) || strlen(ruser) == 0) {
 		return PAM_AUTH_ERR;
 	}
 	if (debug) {
@@ -387,6 +425,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		int count;
 		char *mac;
 		size_t maclen;
+		char ruser[BUFLEN];		
 
 		/* Check that the file is owned by the superuser. */
 		if ((st.st_uid != 0) || (st.st_gid != 0)) {
@@ -456,6 +495,20 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		free(mac);
 		memmove(&then, message + strlen(path) + 1, sizeof(then));
 		free(message);
+		
+		/* Check oldest login against timestamp */
+		if (get_ruser(pamh, ruser, sizeof(ruser)))
+		{
+			return PAM_AUTH_ERR;
+		}
+		if (check_login_time(ruser, then) != PAM_SUCCESS)
+		{
+			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
+			       "older than oldest login, disallowing "
+			       "access to %s for user %s",
+			       path, service, ruser);
+			return PAM_AUTH_ERR;
+		}
 
 		/* Compare the dates. */
 		now = time(NULL);
@@ -463,8 +516,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			close(fd);
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
 			       "only %ld seconds old, allowing access to %s "
-			       "for UID %ld", path, (long) (now - st.st_mtime),
-			       service, (long)getuid());
+			       "for user %s", path, (long) (now - st.st_mtime),
+			       service, ruser);
 			if (verbose) {
 				verbose_success(pamh, debug, now - st.st_mtime);
 			}
@@ -473,9 +526,9 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			close(fd);
 			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' has "
 			       "unacceptable age (%ld seconds), disallowing "
-			       "access to %s for UID %ld",
+			       "access to %s for user %s",
 			       path, (long) (now - st.st_mtime),
-			       service, (long)getuid());
+			       service, ruser);
 			return PAM_AUTH_ERR;
 		}
 	}
@@ -716,7 +769,10 @@ main(int argc, char **argv)
 			} else {
 				/* Check the timestamp. */
 				if (lstat(path, &st) != -1) {
-					if (!timestamp_good(st.st_mtime, time(NULL),
+					/* Check oldest login against timestamp */
+					if (check_login_time(user, st.st_mtime) != PAM_SUCCESS) {
+						retval = 7;
+					} else if (!timestamp_good(st.st_mtime, time(NULL),
 							    DEFAULT_TIMESTAMP_TIMEOUT) == PAM_SUCCESS) {
 						retval = 7;
 					}

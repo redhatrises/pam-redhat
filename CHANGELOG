@@ -15,3 +15,5 @@ without autoconf support.
 * pam_console: Don't check the ownership of terminal on logout - we don't
   have it on X crash (tmraz)
 * pam_stack: Fix memory leaks (tmraz)
+* pam_timestamp: Ignore the timestamp file if it's older than oldest 
+  login (tmraz)
