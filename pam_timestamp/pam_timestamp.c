@@ -509,17 +509,15 @@ main(int argc, char **argv)
 
 	/* Check that we have a controlling tty. */
 	tty = ttyname(STDIN_FILENO);
-	if (tty == NULL) {
-		if ((tty == NULL) || (strlen(tty) == 0)) {
-			tty = ttyname(STDOUT_FILENO);
-		}
-		if ((tty == NULL) || (strlen(tty) == 0)) {
-			tty = ttyname(STDERR_FILENO);
-		}
-		if ((tty == NULL) || (strlen(tty) == 0)) {
-			fprintf(stderr, "no controlling tty\n");
-			retval = 3;
-		}
+	if ((tty == NULL) || (strlen(tty) == 0)) {
+		tty = ttyname(STDOUT_FILENO);
+	}
+	if ((tty == NULL) || (strlen(tty) == 0)) {
+		tty = ttyname(STDERR_FILENO);
+	}
+	if ((tty == NULL) || (strlen(tty) == 0)) {
+		fprintf(stderr, "no controlling tty\n");
+		retval = 3;
 	}
 
 	/* Get the name of the invoking (requesting) user. */
@@ -550,7 +548,7 @@ main(int argc, char **argv)
 		/* Sanity check the tty to make sure we should be checking
 		 * for timestamps which pertain to it. */
 		if (retval == 0) {
-			tty = check_tty(ttyname(STDIN_FILENO));
+			tty = check_tty(tty);
 			if (tty == NULL) {
 				fprintf(stderr, "invalid tty\n");
 				retval = 6;
