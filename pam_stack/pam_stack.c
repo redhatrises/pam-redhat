@@ -108,8 +108,8 @@ _pam_stack_copy(pam_handle_t *source, pam_handle_t *dest, unsigned int item,
 			name = "PAM_CONV";
 			if(source->pam_conversation && !dest->pam_conversation) {
 				copied = 1;
-				dest->pam_conversation =
-					source->pam_conversation;
+				dest->pam_conversation = calloc(1, sizeof(struct pam_conv));
+				*dest->pam_conversation = *source->pam_conversation;
 			} else {
 				if(!source->pam_conversation)
 					reason = "source not NULL";
@@ -218,6 +218,7 @@ _pam_stack_cleanup(pam_handle_t *pamh, void *data, int status)
 		 * shared by the parent's pamh.  Because of how setting items
 		 * works, we don't actually leak memory doing this (!). */
 		stack_this->pamh->data = NULL;
+		_pam_drop(stack_this->pamh->pam_conversation);
 		_pam_drop(stack_this->pamh->service_name);
 		_pam_drop_env(stack_this->pamh);
 		_pam_drop(stack_this->pamh);
