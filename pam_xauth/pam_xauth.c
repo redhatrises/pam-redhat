@@ -474,8 +474,11 @@ _args_init(int argc, const char **argv, int *ret, pam_handle_t *pamh)
 
 
     if (!display) {
-	char *disptemp, *p;
-	disptemp = getenv("DISPLAY");
+	char *disptemp = NULL, *p = NULL;
+	p = getenv("DISPLAY");
+	if (p != NULL) {
+	    disptemp = strdup(p);
+	}
 	/* no need to sanitize $DISPLAY because it is used only in
 	 * providing (source) user's context :-)
 	 */
