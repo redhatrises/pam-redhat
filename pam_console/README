@@ -35,4 +35,10 @@ details...
 Michael K. Johnson
 Red Hat Software, Inc.
 
-Copyright 1999 Red Hat Software, Inc.
+Additional note: the current version is improved so that the functionality
+of changing the ownership and permissions of the devices is split out
+of the pam_console.so module to the pam_console_apply executable,
+which is called from the pam_console module when the lock is obtained.
+Thus the module doesn't depend on the glib.
+
+Copyright 1999, 2005 Red Hat, Inc.

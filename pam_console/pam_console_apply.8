@@ -1,10 +1,10 @@
 .\" Copyright 2001 Red Hat, Inc.
-.TH pam_console_appy 8 2001/3/6 "Red Hat" "System Administrator's Manual"
+.TH pam_console_apply 8 2005/3/18 "Red Hat" "System Administrator's Manual"
 .SH NAME
 pam_console_apply \- set or revoke permissions for users at the system console
 .SH SYNOPSIS
 .B pam_console_apply 
-[-f <fstab file>] [-c <console.perms file>] [-r] [<device file> ...]
+[-f <fstab file>] [-c <console.perms file>] [-r] [-t <tty>] [-s] [-d] [<device file> ...]
 .SH DESCRIPTION
 \fBpam_console_apply\fP sets or resets permissions on devices in the same
 manner as pam_console.
@@ -23,6 +23,12 @@ Load other fstab file than the default one (\fI/etc/fstab\fP).
 Signals \fBpam_console_apply\fP to reset permissions.  The default is to set
 permissions so that the user listed in \fI/var/run/console.lock\fP has access
 to the devices, and to reset permissions if no such file exists.
+.IP -t
+Use <tty> to match console class in console.perms file. The default is tty0.
+.IP -s
+Write error messages to the system log instead of stderr.
+.IP -d
+Log/display messages useful for debugging.
 .PP
 The optional <device file> arguments constrain what files should be affected
 by \fBpam_console_apply\fP. If they aren't specified permissions are

@@ -1,4 +1,6 @@
-/*
+/* Copyright 1999, 2005 Red Hat, Inc.
+ * This software may be used under the terms of the GNU General Public
+ * License, available in the file COPYING accompanying this file.
  *
  * /var/run/console/console.lock is the file used to control access to
  * devices.  It is created when the first console user logs in,
@@ -36,6 +38,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <regex.h>
 #define STATIC static
 #include "pam_console.h"
 #include "handlers.h"
@@ -53,7 +56,6 @@
 static char consolelock[PATH_MAX] = LOCKDIR "/console.lock";
 static char consolerefs[PATH_MAX] = LOCKDIR "/";
 static char consoleapps[PATH_MAX] = "/etc/security/console.apps/";
-static char consoleperms[PATH_MAX] = "/etc/security/console.perms";
 static char consolehandlers[PATH_MAX] = "/etc/security/console.handlers";
 static int configfileparsed = 0;
 static int debug = 0;
@@ -85,6 +87,8 @@ _do_malloc(size_t req)
   return ret;
 }
 
+#include "regerr.c"
+
 static void
 _args_parse(int argc, const char **argv)
 {
@@ -93,12 +97,8 @@ _args_parse(int argc, const char **argv)
 	    debug = 1;
 	else if (!strcmp(*argv,"allow_nonroot_tty"))
 	    allow_nonroot_tty = 1;
-	else if (!strncmp(*argv,"permsfile=",10))
-	    strcpy(consoleperms,*argv+10);
 	else if (!strncmp(*argv,"handlersfile=",13))
 	    strcpy(consolehandlers,*argv+13);
-	else if (!strncmp(*argv,"fstab=",6))
-	    chmod_set_fstab(*argv+6);
 	else {
 	    _pam_log(LOG_ERR, FALSE,
 		     "_args_parse: unknown option; %s",*argv);
@@ -119,6 +119,119 @@ is_root(pam_handle_t *pamh, const char *username) {
         return 0;
     }
     return !pwd->pw_uid;
+}
+
+static int
+check_one_console_name(const char *name, const char *cregex) {
+    regex_t p;
+    int r_err;
+    char *class_exp;
+
+    class_exp = _do_malloc(strlen(cregex) + 3);
+    sprintf(class_exp, "^%s$", cregex);
+    r_err = regcomp(&p, class_exp, REG_EXTENDED|REG_NOSUB);
+    if (r_err) do_regerror(r_err, &p);
+    r_err = regexec(&p, name, 0, NULL, 0);
+    regfree(&p);
+    free (class_exp);
+    return !r_err;
+}
+
+static int
+check_console_name(const char *consolename, int nonroot_ok, int on_set) {
+    int found = 0;
+    int statted = 0;
+    struct stat st;
+    char full_path[PATH_MAX];
+    const char *consoleregex;
+
+    _pam_log(LOG_DEBUG, TRUE, "check console %s", consolename);
+
+    if ((consoleregex = console_get_regexes()) == NULL) {
+        /* probably a broken configuration */
+        _pam_log(LOG_INFO, FALSE, "no console regexes in console.handlers config");
+        return 0;
+    }
+    for (; *consoleregex != '\0'; consoleregex += strlen(consoleregex)+1) {
+	if (check_one_console_name(consolename, consoleregex)) {
+	    found = 1;
+	    break;
+	}
+    }
+
+    if (!found) {
+        /* not found */
+        _pam_log(LOG_INFO, TRUE, "no matching console regex found");
+        return 0;      
+    }
+
+    /* add some policy here -- not really the PAM way of doing things, but
+       it gives us an extra measure of security in case of misconfiguration */
+    memset(&st, 0, sizeof(st));
+    statted = 0;
+
+    _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"", consolename);
+    if (lstat(consolename, &st) != -1) {
+        statted = 1;
+    }
+    if (!statted) {
+        strcpy(full_path, "/dev/");
+        strncat(full_path, consolename,
+                sizeof(full_path) - 1 - strlen(full_path));
+	full_path[sizeof(full_path) - 1] = '\0';
+        _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"",
+		 full_path);
+        if (lstat(full_path, &st) != -1) {
+           statted = 1;
+        }
+    }
+    if (!statted && (consolename[0] == ':')) {
+        size_t l;
+        char *dot = NULL;
+        strcpy(full_path, "/tmp/.X11-unix/X");
+        l = sizeof(full_path) - 1 - strlen(full_path);
+        dot = strchr(consolename + 1, '.');
+        if (dot != NULL) {
+            l = (l < dot - consolename - 1) ? l : dot - consolename - 1;
+        }
+        strncat(full_path, consolename + 1, l);
+	full_path[sizeof(full_path) - 1] = '\0';
+        _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"",
+		 full_path);
+        if (lstat(full_path, &st) != -1) {
+           statted = 1;
+        }
+        else if (!on_set) {  /* there is no X11 socket in case of X11 crash */
+            _pam_log(LOG_DEBUG, TRUE, "can't find X11 socket to examine for %s probably due to X crash", consolename);
+            statted = 1; /* this will work because st.st_uid is 0 */
+        }
+    }
+
+    if (statted) {
+        int ok = 0;
+        if (st.st_uid == 0) {
+            _pam_log(LOG_DEBUG, TRUE, "console %s is owned by UID 0", consolename);
+            ok = 1;
+        }
+        if (S_ISCHR(st.st_mode)) {
+            _pam_log(LOG_DEBUG, TRUE, "console %s is a character device", consolename);
+            ok = 1;
+        }
+        if (!ok && !nonroot_ok) {
+            _pam_log(LOG_INFO, TRUE, "%s is not a valid console device because it is owned by UID %d and the allow_nonroot flag was not set", consolename, st.st_uid);
+            found = 0;
+        }
+    } else {
+        _pam_log(LOG_INFO, TRUE, "can't find device or X11 socket to examine for %s", consolename);
+        found = 0;
+    }
+
+    if (found)
+	return 1;
+
+    /* not found */
+    _pam_log(LOG_INFO, TRUE, "did not find console %s", consolename);
+    return 0;
 }
 
 static int
@@ -410,7 +523,6 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
     /* get configuration */
     if (!configfileparsed) { 
-        parse_file(consoleperms);
         console_parse_handlers(consolehandlers);
         configfileparsed = 1; 
     }
@@ -427,14 +539,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	ret = PAM_SESSION_ERR;
     }
     else if (got_console) {
-	int rv;
 	_pam_log(LOG_DEBUG, TRUE, "%s is console user", username);
-	/* woohoo!  We got here first, grab ownership and perms... */
-	set_permissions(pamh, tty, username, allow_nonroot_tty, NULL);
 	/* errors will be logged and are not critical */
-	rv = console_run_handlers(TRUE, username, tty);
-	if (rv != PAM_SUCCESS)
-	    _pam_log(LOG_ERR, FALSE, "console handlers returned error");
+	console_run_handlers(TRUE, username, tty);
     }
     
     free(lockfile);
@@ -478,7 +585,6 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
     /* get configuration */
     if (!configfileparsed) {
-        parse_file(consoleperms);
         console_parse_handlers(consolehandlers);
         configfileparsed = 1;
     }
@@ -516,15 +622,11 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	    close (fd);
 
 	    if (!strcmp(username, consoleuser)) {
-		int rv;
 		delete_consolelock = 1;
-		reset_permissions(pamh, tty, allow_nonroot_tty, NULL);
 		/* errors will be logged and at this stage we cannot do
 		 * anything about them...
 		 */
-	 	rv = console_run_handlers(FALSE, username, tty);
-    		if (rv != PAM_SUCCESS)
-		    _pam_log(LOG_ERR, FALSE, "console handlers returned error");
+	 	console_run_handlers(FALSE, username, tty);
 	    }
 	} else {
 	    /* didn't open file */
@@ -568,9 +670,4 @@ struct pam_module _pam_console_modstruct = {
 /* end of module definition */
 
 /* supporting functions included from other .c files... */
-#include "regerr.c"
-#include "chmod.c"
-#include "modechange.c"
-#include "config.lex.c"
-#include "config.tab.c"
 #include "handlers.c"

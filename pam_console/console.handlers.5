@@ -1,6 +1,6 @@
 .\" Copyright 2005 Red Hat Software, Inc.
 .\" Written by Tomas Mraz <tmraz@redhat.com>
-.TH console.handlers 5 2005/3/9 "Red Hat" "System Administrator's Manual"
+.TH console.handlers 5 2005/3/18 "Red Hat" "System Administrator's Manual"
 .SH NAME
 console.handlers \- file specifying handlers of console lock and unlock events
 .SH DESCRIPTION
@@ -15,6 +15,16 @@ The format is:
 Where \fBhandler-filename\fP is a name of the executable to be run, \fBlock\fP or
 \fBunlock\fP specifies on which event it should be run, and flags specify how
 should pam_console call it.
+
+Additionally there should be a line which specifies glob patterns of console devices.
+
+The format of this line is:
+\fBconsole-name\fP \fBconsoledevs\fP \fBregex\fP \fI[\fP\fBregex ...\fP\fI]\fP
+
+Where \fBconsole-name\fP is a name of the console class - currently ignored - and
+regexes are regular expression patterns which specify the name of the tty device.
+Only the first such line is consulted.
+
 .SH FLAGS
 .IP logfail
 The pam_console module should log error to the system log if the return value of the

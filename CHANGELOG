@@ -4,6 +4,13 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.78-5: Fri Mar 18 2005
+
+* pam_console: Close all fds except std* when spawning handlers
+* pam_console: Improve logging of failed handlers
+* pam_console: Remove the permission changing from the pam_console.so
+* pam_console: Use the improved pam_console_apply as a handler
+
 0.78-4: Thu Mar 10 2005
 
 * Merged fix for gcc4 compilation and config file parsing from dist

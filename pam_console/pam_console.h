@@ -1,46 +1,14 @@
-/* Copyright 1999 Red Hat Software, Inc.
+/* Copyright 1999, 2005 Red Hat, Inc.
  * This software may be used under the terms of the GNU General Public
- * License, available in the file COPYING accompanying this file
+ * License, available in the file COPYING accompanying this file.
  */
 #ifndef _PAM_CONSOLE_H
 #define _PAM_CONSOLE_H
-#include <glib.h>
 #include <security/pam_modules.h>
-#include "chmod.h"
-
-typedef struct class_s class;
-struct class_s {
-	char*	name;
-	GSList*	list;
-};
-
-typedef struct config_s config;
-struct config_s {
-	class*	console_class;
-	char*	mode;
-	class*	device_class;
-	char*	revert_mode;
-	char*	revert_owner;
-	char*	revert_group;
-};
 
 /* pam_console.c */
 
 static void
 _pam_log(int err, int debug_p, const char *format, ...);
-
-/* config.y */
-
-STATIC void
-parse_file(char *name);
-
-STATIC int
-check_console_name (const char *consolename, int allow_nonroot, int on_set);
-
-STATIC int
-set_permissions(pam_handle_t *pamh, const char *consolename, const char *username, int allow_nonroot, GSList *files);
-
-STATIC int
-reset_permissions(pam_handle_t *pamh, const char *consolename, int allow_nonroot, GSList *files);
 
 #endif /* _PAM_CONSOLE_H */

@@ -1,8 +1,8 @@
 .\" Copyright 1999 Red Hat Software, Inc.
 .\" Written by Michael K. Johnson <johnsonm@redhat.com>
-.TH pam_console 8 2005/3/9 "Red Hat" "System Administrator's Manual"
+.TH pam_console 8 2005/3/18 "Red Hat" "System Administrator's Manual"
 .SH NAME
-pam_console \- control permissions for users at the system console
+pam_console \- determine user owning the system console
 .SH SYNOPSIS
 .B session optional /lib/security/pam_console.so
 .br
@@ -16,9 +16,10 @@ the console.  It provides two main kinds of capabilities: file permissions
 and authentication.
 
 When a user logs in at the console and \fBno other user is currently
-logged in at the console\fP, pam_console.so will change permissions
-and ownership of files as described in the file /etc/security/console.perms
-and run handler programs specified in the file /etc/security/console.handlers.
+logged in at the console\fP, pam_console.so will run handler programs
+specified in the file /etc/security/console.handlers such as
+pam_console_apply which changes permissions and ownership of files as
+described in the file /etc/security/console.perms.
 That user may then log in on other terminals that are considered part
 of the console, and as long as the user is still logged in at any one
 of those terminals, that user will own those devices.  When the user
@@ -46,13 +47,6 @@ or to enter user password on the first system login only.
 turns on debugging
 .IP allow_nonroot_tty
 gain console locks and change permissions even if the TTY's owner is not root.
-.IP permsfile=\fIfilename\fP
-tells pam_console.so to get its permissions database from a different
-file than /etc/security/console.perms
-.IP fstab=\fIfilename\fP
-tells pam_console.so to read the table of configured filesystems from a
-file other than \fI/etc/fstab\fP when scanning \fIpermsfile\fP.  This file
-is used to map directories to device names.
 .IP handlersfile=\fIfilename\fP
 tells pam_console.so to get the list of the handlers from a different
 file than /etc/security/console.handlers

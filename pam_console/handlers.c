@@ -26,7 +26,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-enum types { UNKNOWN, LOCK, UNLOCK };
+enum types { UNKNOWN, LOCK, UNLOCK, CONSOLEDEVS };
 enum flags { HF_LOGFAIL, HF_WAIT, HF_SETUID, HF_TTY, HF_USER, HF_PARAM };
 
 struct console_handler {
@@ -59,7 +59,7 @@ console_parse_handlers (const char *handlers_name) {
         
         fh = fopen(handlers_name, "r");
         if (fh == NULL) {
-                _pam_log(LOG_ERR, FALSE, "cannot open file %s for reading", filename);
+                _pam_log(LOG_ERR, FALSE, "cannot open file %s for reading", handlers_name);
                 return rv;
         }
         
@@ -117,6 +117,9 @@ console_parse_handlers (const char *handlers_name) {
                                 } 
                                 else if (strcmp(tokptr, "unlock") == 0) {
                                         handler->type = UNLOCK;
+                                }
+                                else if (strcmp(tokptr, "consoledevs") == 0) {
+                                        handler->type = CONSOLEDEVS;
                                 }
                         }
                         
@@ -198,7 +201,9 @@ execute_handler(struct console_handler *handler, const char *user, const char *t
         int wait_exit = 0;
         int set_uid = 0;
         int child;
-        int rv = -1;
+        int rv = 0;
+	int max_fd;
+	int fd;
 	sighandler_t sighandler;
 
         for (flagptr = handler->flags; *flagptr != '\0'; flagptr += strlen(flagptr)+1) {
@@ -224,14 +229,18 @@ execute_handler(struct console_handler *handler, const char *user, const char *t
         child = fork();
         switch (child) {
         case -1:
-                if (logfail)
-                        return PAM_SESSION_ERR;
-                else
-                        return PAM_SUCCESS;
+		_pam_log(LOG_ERR, !logfail, "fork failed when executing handler '%s'",
+				handler->executable);
+		return -1;
         case 0:
+		/* close all descriptors except std* */
+		max_fd = getdtablesize();
+		for(fd = 3; fd < max_fd; fd++)
+			rv = close(fd); /* rv will be ignored */
                 if (!wait_exit) {
 			switch(fork()) {
 			case 0:
+				exit(0);
 			case -1:
 				exit(255);
 			default:
@@ -259,27 +268,39 @@ execute_handler(struct console_handler *handler, const char *user, const char *t
 
 	if (sighandler != SIG_ERR)
 		signal(SIGCHLD, sighandler);
-	
-        if (logfail && rv != 0)
-                return PAM_SESSION_ERR;
-        return PAM_SUCCESS;
+
+	if (WIFEXITED(rv) && WEXITSTATUS(rv) != 0)
+		_pam_log(LOG_ERR, !logfail, "handler '%s' returned %d on exit",
+			handler->executable, (int)WEXITSTATUS(rv));
+	else
+		_pam_log(LOG_ERR, !logfail, "handler '%s' caught a signal",
+			handler->executable);
+			
+        return 0;
 }
 
-STATIC int
+STATIC void
 console_run_handlers(int lock, const char *user, const char *tty) {
         struct console_handler *handler;
-        int rv = PAM_SUCCESS;
 
         for (handler = first_handler; handler != NULL; handler = handler->next) {
-                int handler_rv = PAM_SUCCESS;
                 if (lock && handler->type == LOCK) {
-                        handler_rv = execute_handler(handler, user, tty);
+                        execute_handler(handler, user, tty);
                 }
                 else if (!lock && handler->type == UNLOCK) {
-                        handler_rv = execute_handler(handler, user, tty);
+                        execute_handler(handler, user, tty);
                 }
-                if ( handler_rv != PAM_SUCCESS )
-                        rv = handler_rv;
         }
-        return rv;
+}
+
+STATIC const char *
+console_get_regexes(void) {
+        struct console_handler *handler;
+
+        for (handler = first_handler; handler != NULL; handler = handler->next) {
+                if (handler->type == CONSOLEDEVS) {
+                        return handler->flags;
+                }
+        }
+	return NULL;
 }

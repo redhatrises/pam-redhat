@@ -166,14 +166,11 @@ check_one_console_name (const char *name, char *classComponent) {
 }
 
 STATIC int
-check_console_name (const char *consolename, int nonroot_ok, int on_set) {
+check_console_name (const char *consolename) {
     GSList *this_class;
     GSList *this_list;
     class *c;
     int found = 0;
-    int statted = 0;
-    struct stat st;
-    char full_path[PATH_MAX];
 
     _pam_log(LOG_DEBUG, TRUE, "check console %s", consolename);
     if (consoleNameCache != consolename) {
@@ -199,67 +196,6 @@ check_console_name (const char *consolename, int nonroot_ok, int on_set) {
 	}
     }
 
-    /* add some policy here -- not really the PAM way of doing things, but
-       it gives us an extra measure of security in case of misconfiguration */
-    memset(&st, 0, sizeof(st));
-    statted = 0;
-
-    _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"", consolename);
-    if (lstat(consolename, &st) != -1) {
-        statted = 1;
-    }
-    if (!statted) {
-        strcpy(full_path, "/dev/");
-        strncat(full_path, consolename,
-                sizeof(full_path) - 1 - strlen(full_path));
-	full_path[sizeof(full_path) - 1] = '\0';
-        _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"",
-		 full_path);
-        if (lstat(full_path, &st) != -1) {
-           statted = 1;
-        }
-    }
-    if (!statted && (consolename[0] == ':')) {
-        size_t l;
-        char *dot = NULL;
-        strcpy(full_path, "/tmp/.X11-unix/X");
-        l = sizeof(full_path) - 1 - strlen(full_path);
-        dot = strchr(consolename + 1, '.');
-        if (dot != NULL) {
-            l = (l < dot - consolename - 1) ? l : dot - consolename - 1;
-        }
-        strncat(full_path, consolename + 1, l);
-	full_path[sizeof(full_path) - 1] = '\0';
-        _pam_log(LOG_DEBUG, TRUE, "checking possible console \"%s\"",
-		 full_path);
-        if (lstat(full_path, &st) != -1) {
-           statted = 1;
-        }
-        else if (!on_set) {  /* there is no X11 socket in case of X11 crash */
-            _pam_log(LOG_DEBUG, TRUE, "can't find X11 socket to examine for %s probably due to X crash", consolename);
-            statted = 1; /* this will work because st.st_uid is 0 */
-        }
-    }
-
-    if (statted) {
-        int ok = 0;
-        if (st.st_uid == 0) {
-            _pam_log(LOG_DEBUG, TRUE, "console %s is owned by UID 0", consolename);
-            ok = 1;
-        }
-        if (S_ISCHR(st.st_mode)) {
-            _pam_log(LOG_DEBUG, TRUE, "console %s is a character device", consolename);
-            ok = 1;
-        }
-        if (!ok && !nonroot_ok) {
-            _pam_log(LOG_INFO, TRUE, "%s is not a valid console device because it is owned by UID %d and the allow_nonroot flag was not set", consolename, st.st_uid);
-            found = 0;
-        }
-    } else {
-        _pam_log(LOG_INFO, TRUE, "can't find device or X11 socket to examine for %s", consolename);
-        found = 0;
-    }
-
     if (found)
 	return 1;
 
@@ -273,16 +209,16 @@ check_console_name (const char *consolename, int nonroot_ok, int on_set) {
 }
 
 STATIC int
-set_permissions(pam_handle_t *pamh, const char *consolename, const char *username, int nonroot_ok, GSList *files) {
+set_permissions(const char *consolename, const char *username, GSList *files) {
     struct passwd *pwd;
     config *c;
     GSList *cl;
 
     if (!consoleNameCache || strcmp(consolename, consoleNameCache)) {
-	if (!check_console_name(consolename, nonroot_ok, TRUE)) return -1;
+	if (!check_console_name(consolename)) return -1;
     }
 
-    pwd = _pammodutil_getpwnam(pamh, username);
+    pwd = getpwnam(username);
     if (pwd == NULL) {
 	_pam_log(LOG_ERR, FALSE, "getpwnam failed for \"%s\"", username);
 	return -1;
@@ -301,26 +237,26 @@ set_permissions(pam_handle_t *pamh, const char *consolename, const char *usernam
 }
 
 STATIC int
-reset_permissions(pam_handle_t *pamh, const char *consolename, int nonroot_ok, GSList *files) {
+reset_permissions(const char *consolename, GSList *files) {
     struct passwd *pwd;
     struct group *grp;
     config *c;
     GSList *cl;
 
     if (!consoleNameCache || strcmp(consolename, consoleNameCache)) {
-	if (!check_console_name(consolename, nonroot_ok, FALSE)) return -1;
+	if (!check_console_name(consolename)) return -1;
     }
 
     for (cl = configList; cl; cl = cl->next) {
 	c = cl->data;
 	if (g_hash_table_lookup(consoleHash, c->console_class)) {
-	    pwd = _pammodutil_getpwnam(pamh, c->revert_owner ? c->revert_owner : "root");
+	    pwd = getpwnam(c->revert_owner ? c->revert_owner : "root");
 	    if (pwd == NULL) {
 		_pam_log(LOG_ERR, FALSE, "getpwnam failed for %s",
 			 c->revert_owner ? c->revert_owner : "root");
 		return -1;
 	    }
-	    grp = _pammodutil_getgrnam(pamh, c->revert_group ? c->revert_group : "root");
+	    grp = getgrnam(c->revert_group ? c->revert_group : "root");
 	    if (grp == NULL) {
                 _pam_log(LOG_ERR, FALSE, "getgrnam failed for %s",
                          c->revert_group ? c->revert_group : "root");
