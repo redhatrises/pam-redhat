@@ -8,9 +8,17 @@ include ../../Make.Rules
 
 TITLE=pam_console
 
+ifeq ($(PREFER_GLIB1),yes)
+GLIB_CFLAGS = $(shell glib-config --cflags)
+GLIB_LIBS = $(shell glib-config --libs)
+else
+GLIB_CFLAGS = $(shell pkg-config --cflags glib-2.0)
+GLIB_LIBS = $(shell pkg-config --libs glib-2.0)
+endif
+
 LOCKDIR = /var/run/console
 LOCKMODE = 755
-LIBS +=  $(shell glib-config --libs) -L../pammodutil -lpammodutil
+LIBS +=  $(GLIB_LIBS) -L../pammodutil -lpammodutil
 LDFLAGS = $(LIBS)
 
 BINARY = pam_console_apply
@@ -20,7 +28,7 @@ INSTALLED_CONFILE = $(SCONFIGD)/console.perms
 MAN5 = console.apps.5 console.perms.5
 MAN8 = pam_console.8 pam_console_apply.8
 
-CFLAGS += $(shell glib-config --cflags) -D_GNU_SOURCE -DLOCKDIR=\"$(LOCKDIR)\" -I../pammodutil/include
+CFLAGS += $(GLIB_CFLAGS) -D_GNU_SOURCE -DLOCKDIR=\"$(LOCKDIR)\" -I../pammodutil/include
 
 FLEX_OPTS = -Cr
 BISON_OPTS = -d
