@@ -510,8 +510,16 @@ main(int argc, char **argv)
 	/* Check that we have a controlling tty. */
 	tty = ttyname(STDIN_FILENO);
 	if (tty == NULL) {
-		fprintf(stderr, "no controlling tty\n");
-		retval = 3;
+		if ((tty == NULL) || (strlen(tty) == 0)) {
+			tty = ttyname(STDOUT_FILENO);
+		}
+		if ((tty == NULL) || (strlen(tty) == 0)) {
+			tty = ttyname(STDERR_FILENO);
+		}
+		if ((tty == NULL) || (strlen(tty) == 0)) {
+			fprintf(stderr, "no controlling tty\n");
+			retval = 3;
+		}
 	}
 
 	/* Get the name of the invoking (requesting) user. */
