@@ -207,7 +207,7 @@ chmod_files (const char *mode, uid_t user, gid_t group,
     if (rc == GLOB_NOSPACE) DIE(1)
     flags |= GLOB_APPEND;
   }
-  if(filename) {
+  if(single_file) {
     rc = glob(single_file, flags, glob_errfn, &result);
     if (rc == GLOB_NOSPACE) DIE(1)
   }

@@ -369,7 +369,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
     }
 
     free(lockfile);
-    return PAM_SUCCESS;
+    return ret;
 }
 
 PAM_EXTERN int
