@@ -269,7 +269,8 @@ check_console_name (const char *consolename, int nonroot_ok) {
 
 STATIC int
 set_permissions(const char *consolename, const char *username, int nonroot_ok) {
-    struct passwd *p;
+    struct passwd passwd, *p;
+    char ubuf[LINE_MAX];
     config *c;
     GSList *cl;
 
@@ -277,8 +278,7 @@ set_permissions(const char *consolename, const char *username, int nonroot_ok) {
 	if (!check_console_name(consolename, nonroot_ok)) return -1;
     }
 
-    p = getpwnam(username);
-    if (!p) {
+    if((getpwnam_r(username, &passwd, ubuf, sizeof(ubuf), &p) != 0) || (!p)) {
 	_pam_log(LOG_ERR, FALSE, "getpwnam failed for \"%s\"", username);
 	return -1;
     }
@@ -297,8 +297,9 @@ set_permissions(const char *consolename, const char *username, int nonroot_ok) {
 
 STATIC int
 reset_permissions(const char *consolename, int nonroot_ok) {
-    struct passwd *p;
-    struct group *g;
+    struct passwd passwd, *p;
+    struct group group, *g;
+    char ubuf[LINE_MAX], gbuf[LINE_MAX];
     config *c;
     GSList *cl;
 
@@ -309,14 +310,14 @@ reset_permissions(const char *consolename, int nonroot_ok) {
     for (cl = configList; cl; cl = cl->next) {
 	c = cl->data;
 	if (g_hash_table_lookup(consoleHash, c->console_class)) {
-	    p = getpwnam(c->revert_owner ? c->revert_owner : "root");
-	    if (!p) {
+            if((getpwnam_r(c->revert_owner ? c->revert_owner : "root", &passwd,
+                           ubuf, sizeof(ubuf), &p) != 0) || (!p)) {
 		_pam_log(LOG_ERR, FALSE, "getpwnam failed for %s",
 			 c->revert_owner ? c->revert_owner : "root");
 		return -1;
 	    }
-            g = getgrnam(c->revert_group ? c->revert_group : "root");
-            if (!g) {
+            if((getgrnam_r(c->revert_group ? c->revert_group : "root", &group,
+                           gbuf, sizeof(gbuf), &g) != 0) || (!g)) {
                 _pam_log(LOG_ERR, FALSE, "getgrnam failed for %s",
                          c->revert_group ? c->revert_group : "root");
                 return -1;

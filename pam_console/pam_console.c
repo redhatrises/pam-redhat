@@ -106,10 +106,10 @@ is_root(const char *username) {
     /* this should correspond to suser() in the kernel, since the
      * whole point of this is to avoid doing unnecessary file ops
      */
-    struct passwd *p;
+    struct passwd *p, pwd;
+    char buffer[LINE_MAX];
 
-    p = getpwnam(username);
-    if (!p) {
+    if((getpwnam_r(username, &pwd, buffer, sizeof(buffer), &p) != 0) || (!p)) {
         _pam_log(LOG_ERR, FALSE,
         	 "getpwnam failed for %s", username);
         return 0;
@@ -260,17 +260,17 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
    * and the service name must be listed in
    * /etc/security/console-apps
    */
-    struct passwd *p;
+    struct passwd *p, pwd;
     char *lockfile = NULL;
     char *appsfile = NULL;
     char *service;
+    char buffer[LINE_MAX];
     int ret = PAM_AUTH_ERR;
 
     D(("called."));
     _args_parse(argc, argv);
     if (!getuid()) return PAM_SUCCESS; /* root always trivially succeeds */
-    p = getpwuid(getuid());
-    if (!p) {
+    if((getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &p) != 0) || (!p)) {
 	_pam_log(LOG_ERR, FALSE, "user with id %d not found", getuid());
 	return PAM_AUTH_ERR;
     }

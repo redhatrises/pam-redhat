@@ -111,6 +111,7 @@ remove:
 clean:
 	rm -f $(BINARY) $(LIBOBJD) $(LIBOBJS) core *~
 	rm -f *.a *.o *.so *.bak
+	rm -f config.tab.c config.tab.h config.lex.c
 	rm -rf dynamic static
 	$(CLEAN)
 
