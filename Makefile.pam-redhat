@@ -1,6 +1,6 @@
 VERSION=0.75
 RELEASE=15
-CVSTAG=pam-redhat-`echo $(VERSION) | sed s,\.,-,g`-$(RELEASE)
+CVSTAG=pam-redhat-$(shell echo $(VERSION) | sed s,\\.,-,g)-$(RELEASE)
 
 tag:
 	cvs tag -cFR $(CVSTAG) . 
