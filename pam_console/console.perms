@@ -23,7 +23,7 @@
 	 /dev/floppy/* /mnt/floppy*
 <sound>=/dev/dsp* /dev/audio* /dev/midi* \
 	/dev/mixer* /dev/sequencer \
-	/dev/sound/*
+	/dev/sound/* /dev/beep
 <cdrom>=/dev/cdrom* /dev/cdroms/* /dev/cdwriter* /mnt/cdrom*
 <pilot>=/dev/pilot
 <jaz>=/dev/jaz /mnt/jaz*
@@ -41,6 +41,7 @@
       /dev/video/*
 <gpm>=/dev/gpmctl
 <dri>=/dev/nvidia* /dev/3dfx*
+<mainboard>=/dev/apm_bios
 
 # permission definitions
 <console>  0660 <floppy>     0660 root.floppy
@@ -59,6 +60,7 @@
 <console>  0600 <joystick>   0600 root
 <console>  0600 <v4l>        0600 root
 <console>  0700 <gpm>	     0700 root
+<console>  0600 <mainboard>  0600 root
 
 <xconsole> 0600 /dev/console 0600 root.root
 <xconsole> 0600 <dri>	     0600 root
