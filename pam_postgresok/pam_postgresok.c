@@ -8,10 +8,12 @@
 
 #define _GNU_SOURCE
 
+#include "../../_pam_aconf.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <syslog.h>
 #include <stdarg.h>
+#include <string.h>
 #include <pwd.h>
 
 /*
@@ -24,6 +26,7 @@
 #define PAM_SM_AUTH
 
 #include <security/pam_modules.h>
+#include <security/_pam_modutil.h>
 
 /* some syslogging */
 
@@ -32,7 +35,7 @@ static void _pam_log(int err, const char *format, ...)
     va_list args;
 
     va_start(args, format);
-    openlog("PAM-postgresok", LOG_CONS|LOG_PID, LOG_AUTH);
+    openlog("PAM-postgresok", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
     vsyslog(err, format, args);
     va_end(args);
     closelog();
@@ -76,9 +79,9 @@ int pam_sm_authenticate(pam_handle_t *pamh,int flags,int argc
     ctrl = _pam_parse(argc, argv);
 
     uid = getuid();
-    pw = getpwuid(uid);
+    pw = _pammodutil_getpwuid(pamh, uid);
 
-    if ((uid == 26) && (strcmp(pw->pw_name, "postgres") == 0))
+    if ((uid == 26) && (pw != NULL) && (strcmp(pw->pw_name, "postgres") == 0))
 	retval = PAM_SUCCESS;
 
     if (ctrl & PAM_DEBUG_ARG) {
