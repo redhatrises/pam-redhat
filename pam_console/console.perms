@@ -44,7 +44,7 @@
 <v4l>=/dev/video* /dev/radio* /dev/winradio* /dev/vtx* /dev/vbi* \
       /dev/video/*
 <gpm>=/dev/gpmctl
-<dri>=/dev/nvidia* /dev/3dfx*
+<dri>=/dev/nvidia* /dev/3dfx* /dev/dri/card*
 <mainboard>=/dev/apm_bios
 <pmu>=/dev/pmu
 <bluetooth>=/dev/rfcomm*
@@ -76,4 +76,4 @@
 <console>  0600 <raw1394>    0600 root
 
 <xconsole> 0600 /dev/console 0600 root.root
-<xconsole> 0600 <dri>	     0600 root
+<console> 0600 <dri>	     0600 root

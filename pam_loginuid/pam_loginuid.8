@@ -1,0 +1,42 @@
+.TH pam_loginuid 8 2005/02/10 "Red Hat Linux" "System Administrator's Manual"
+.SH NAME
+pam_loginuid \- record authentication attempts to audit subsystem
+.SH SYNOPSIS
+.B session required /lib/security/pam_loginuid.so
+.br
+
+.SH DESCRIPTION
+pam_loginuid sets the loginuid for the process that was authenticated. This is
+necessary for applications to be correctly audited.
+
+.SH ARGUMENTS
+.IP none
+
+.SH EXAMPLE
+\fB/etc/pam.d/gdm\fP:
+.br
+auth       required     pam_loginuid.so
+.br
+auth       required     pam_stack.so service=system-auth
+.br
+auth       required     pam_nologin.so
+.br
+account    required     pam_stack.so service=system-auth
+.br
+password   required     pam_stack.so service=system-auth
+.br
+session    required     pam_stack.so service=system-auth
+.br
+session    required     pam_loginuid.so
+.br
+session    optional     pam_console.so
+.br
+
+.SH SEE ALSO
+auditd(8), auditctl(8)
+
+.SH BUGS
+Let's hope not, but if you find any, please email the author.  
+
+.SH AUTHOR
+Steve Grubb <sgrubb@redhat.com>
