@@ -79,12 +79,13 @@ libmisc_converse(pam_handle_t *pamh,
 
 	/* Get the address of the conversation structure provided by the
 	 * application. */
+	conv = NULL;
 	i = get_item_conv(pamh, &conv);
 	if (i != PAM_SUCCESS) {
 		return i;
 	}
 	if (conv == NULL) {
-		return PAM_CONV_ERR;
+		return PAM_BAD_ITEM;
 	}
 
 	/* Allocate the array for storing pointers to elements in the array
