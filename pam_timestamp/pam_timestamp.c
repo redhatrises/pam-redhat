@@ -521,7 +521,7 @@ main(int argc, char **argv)
 	}
 
 	format_timestamp_name(path, sizeof(path), TIMESTAMPDIR,
-			      user, tty, argc > 1 ? argv[1] : user);
+			      user, tty, optind < argc ? argv[optind] : user);
 	if (kflag) {
 		/* Remove the timestamp. */
 		if (lstat(path, &st) != -1) {
