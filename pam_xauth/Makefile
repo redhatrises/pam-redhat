@@ -7,5 +7,6 @@
 include ../../Make.Rules
 
 TITLE=pam_xauth
+MAN8=pam_xauth.8
 
 include ../Simple.Rules

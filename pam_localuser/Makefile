@@ -9,5 +9,6 @@
 include ../../Make.Rules
 
 TITLE=pam_localuser
+MAN8=pam_localuser.8
 
 include ../Simple.Rules

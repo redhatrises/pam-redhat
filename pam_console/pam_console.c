@@ -48,14 +48,13 @@
  */
 #define CAST_ME_HARDER (const void**)
 
-static char *consolelock = "/var/lock/console.lock";
-static char *consolerefs = "/var/lock/console/";
-static char *consoleapps = "/etc/security/console.apps/";
-static char *consoleperms = "/etc/security/console.perms";
+static char consolelock[PATH_MAX] = "/var/lock/console.lock";
+static char consolerefs[PATH_MAX] = "/var/lock/console/";
+static char consoleapps[PATH_MAX] = "/etc/security/console.apps/";
+static char consoleperms[PATH_MAX] = "/etc/security/console.perms";
 static int configfileparsed = 0;
 static int debug = 0;
 static int allow_nonroot_tty = 0;
-
 
 /* some syslogging */
 
