@@ -25,3 +25,6 @@ some portions of an actual root environment under the chroot()ed directory
 in order for it to work at all.  (This includes configuration and logging
 files.)  If configured incorrectly, this module may potentially render the
 service unusable and, under some circumstances, pose a security risk.
+
+In particular, the new root directory and all of its parent directories must
+not be writable by anyone but root.

@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <limits.h>
+#include <sys/stat.h>
 
 #define	CONFIG	"/etc/security/chroot.conf"
 
@@ -101,6 +102,20 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 		regfree(&name_regex);
 
 		if(!err) {
+			struct stat st;
+
+			if (stat(dir, &st) == -1) {
+				syslog(LOG_ERR, "stat(%s) failed: %s",
+						dir, strerror(errno));
+				ret = onerr;
+			} else
+			/* Catch the most common misuse */
+			if (st.st_uid != 0 ||
+			    (st.st_mode & (S_IWGRP | S_IWOTH))) {
+				syslog(LOG_ERR, "%s is writable by non-root",
+						dir);
+				ret = onerr;
+			} else
 			if(chdir(dir) == -1) {
 				syslog(LOG_ERR, "chdir(%s) failed: %s",
 						dir, strerror(errno));
