@@ -298,7 +298,8 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			return PAM_IGNORE;
 		}
 
-		/* Generate the environment variable "XAUTHORITY=filename". */
+		/* Generate the environment variable
+		 * "XAUTHORITY=<homedir>/filename". */
 		xauthority = malloc(strlen(XAUTHENV) + strlen(thome) +
 				    strlen(XAUTHTMP) + 3);
 		if(xauthority == NULL) {
