@@ -1,7 +1,7 @@
-.\" Copyright 2001 Red Hat, Inc.
+.\" Copyright 2001,2003 Red Hat, Inc.
 .\" Written by Nalin Dahyabhai <nalin@redhat.com>, based on the original
 .\" version by Michael K. Johnson
-.TH pam_xauth 8 2001/9/27 "Red Hat Linux" "System Administrator's Manual"
+.TH pam_xauth 8 2003/7/24 "Red Hat Linux" "System Administrator's Manual"
 .SH NAME
 pam_xauth \- forward xauth keys between users
 .SH SYNOPSIS
@@ -47,6 +47,12 @@ the import and export files can be empty, signifying that no users are allowed.
 Turns on debugging messages sent to syslog.
 .IP xauthpath=\fI/usr/X11R6/bin/xauth\fP
 Specify the path the xauth program (the default is /usr/X11R6/bin/xauth).
+.IP systemuser=\fInumber\fP
+Specify the highest UID which will be assumed to belong to a "system" user.
+pam_xauth will refuse to forward credentials to users with UID less than or
+equal to this number, except for root and the "targetuser", if specified.
+.IP targetuser=\fInumber\fP
+Specify a single target UID which is exempt from the systemuser check.
 .SH "IMPLEMENTATION DETAILS"
 pam_xauth will work \fIonly\fP if it is used from a setuid application
 in which the getuid() call returns the id of the user running the

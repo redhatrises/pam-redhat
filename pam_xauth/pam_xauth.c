@@ -279,7 +279,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	struct passwd passwd, *pwd, rpasswd, *rpwd;
 	size_t buflen;
 	int fd, i, debug = 0;
-	uid_t systemuser = 499, euid;
+	uid_t systemuser = 499, targetuser = 0, euid;
 
 	/* Parse arguments.  We don't understand many, so no sense in breaking
 	 * this into a separate function. */
@@ -290,6 +290,16 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		}
 		if (strncmp(argv[i], "xauthpath=", 10) == 0) {
 			xauth = argv[i] + 10;
+			continue;
+		}
+		if (strncmp(argv[i], "targetuser=", 11) == 0) {
+			long l = strtol(argv[i] + 11, &tmp, 10);
+			if ((strlen(argv[i] + 11) > 0) && (*tmp == '\0')) {
+				targetuser = l;
+			} else {
+				syslog(LOG_WARNING, "pam_xauth: invalid value "
+				       "for targetuser (`%s')", argv[i] + 11);
+			}
 			continue;
 		}
 		if (strncmp(argv[i], "systemuser=", 11) == 0) {
@@ -351,7 +361,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* If the UID is a system account (and not the superuser), forget
 	 * about forwarding keys. */
-	if ((passwd.pw_uid != 0) && (passwd.pw_uid <= systemuser)) {
+	if ((passwd.pw_uid != 0) &&
+	    (passwd.pw_uid != targetuser) &&
+	    (passwd.pw_uid <= systemuser)) {
 		if (debug) {
 			syslog(LOG_DEBUG, "pam_xauth: not forwarding cookies "
 			       "to user ID %ld", (long) passwd.pw_uid);
@@ -590,6 +602,9 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			continue;
 		}
 		if (strncmp(argv[i], "systemuser=", 11) == 0) {
+			continue;
+		}
+		if (strncmp(argv[i], "targetuser=", 11) == 0) {
 			continue;
 		}
 		syslog(LOG_WARNING, "pam_xauth: unrecognized option `%s'",

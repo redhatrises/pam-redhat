@@ -1,0 +1,28 @@
+.\" Copyright 2003 Red Hat, Inc.
+.\" Module written by Fernando Nasser <fnasser@redhat.com>
+.TH pam_postgresok 8 2003/7/24 "Red Hat Linux" "System Administrator's Manual"
+
+.SH NAME
+pam_postgresok \- simple check of real UID and corresponding account name
+
+.SH SYNOPSIS
+.B auth sufficient pam_postgresok.so
+
+.SH DESCRIPTION
+pam_postgresok.so is designed to check that the real UID of the calling
+process belongs to the "postgres" user and equal to 26 (the value assigned
+to that user on Red Hat Linux systems).
+
+.SH ARGUMENTS
+.IP debug
+Enable module debugging.  The module will log its progress to syslog.
+
+.SH BUGS
+Let's hope not, but if you find any, please report them via the "Bug Track"
+link at http://bugzilla.redhat.com/bugzilla/
+
+.SH FILES
+/usr/share/doc/setup-*/uidgid
+
+.SH AUTHOR
+Fernando Nasser <fnasser@redhat.com>

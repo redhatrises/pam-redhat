@@ -25,7 +25,11 @@ RECOGNIZED ARGUMENTS:
 	xauthpath=	the path to the xauth program, by default
 			/usr/X11R6/bin/xauth
 	systemuser=	highest user id assigned to system users, defaults
-			to 499
+			to 499 (pam_xauth will refuse to forward creds to
+			target users with id equal to or below this number,
+			except for root and possibly another specified user)
+	targetuser=	a target user id which is excepted from the systemuser
+			checks
 
 
 MODULE SERVICES PROVIDED:
