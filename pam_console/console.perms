@@ -22,7 +22,7 @@
 <floppy>=/dev/fd[0-1]*
 <sound>=/dev/dsp* /dev/audio* /dev/midi* \
 	/dev/mixer* /dev/sequencer
-<cdrom>=/dev/cdrom /dev/cdwriter
+<cdrom>=/dev/cdrom* /dev/cdwriter*
 <pilot>=/dev/pilot
 <jaz>=/dev/jaz
 <zip>=/dev/zip
@@ -32,7 +32,7 @@
 <joystick>=/dev/js*
 <v4l>=/dev/video* /dev/radio* /dev/winradio* /dev/vtx* /dev/vbi*
 <gpm>=/dev/gpmctl
-<dri>=/dev/dri/*
+<dri>=/dev/dri/* /dev/nvidia*
 
 # permission definitions
 <console>  0660 <floppy>    0660 root.floppy
