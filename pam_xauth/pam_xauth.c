@@ -365,7 +365,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 		/* Set the new variable in the environment. */
 		pam_putenv(pamh, xauthority);
-		putenv(xauthority);
+		putenv(xauthority); /* The environment owns this string now. */
 
 		/* Merge the cookie we read before into the new file. */
 		if(debug) {
@@ -376,10 +376,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			      passwd.pw_uid, passwd.pw_gid,
 			      xauth, "-f", cookiefile, "nmerge", "-", NULL);
 
-		/* We don't need to keep a copy of this around any more. */
+		/* We don't need to keep a copy of these around any more. */
 		free(cookie);
 		free(thome);
-		free(xauthority);
 	}
 	return PAM_SUCCESS;
 }
