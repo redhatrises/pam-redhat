@@ -485,6 +485,15 @@ main(int argc, char **argv)
 	char path[BUFLEN];
 	struct stat st;
 
+	/* Check that there's nothing funny going on with stdio. */
+	if ((fstat(STDIN_FILENO, &st) == -1) ||
+	    (fstat(STDOUT_FILENO, &st) == -1) ||
+	    (fstat(STDERR_FILENO, &st) == -1)) {
+		/* Appropriate the "no controlling tty" error code. */
+		return 3;
+	}
+
+	/* Parse arguments. */
 	while ((i = getopt(argc, argv, "dk")) != -1) {
 		switch (i) {
 			case 'd':
