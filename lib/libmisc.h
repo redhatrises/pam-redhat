@@ -21,5 +21,9 @@ int libmisc_converse(pam_handle_t *pamh,
 		     struct pam_message *messages, int n_prompts,
 		     struct pam_response **responses);
 void libmisc_free_responses(struct pam_response *responses, int n_responses);
+ssize_t libmisc_retry_read(int fd, void *buf, size_t length);
+ssize_t libmisc_retry_write(int fd, const void *buf, size_t length);
+int libmisc_set_string_item(pam_handle_t *pamh, int item, const char **ret);
+int libmisc_get_string_item(pam_handle_t *pamh, int item, const char **ret);
 
 #endif

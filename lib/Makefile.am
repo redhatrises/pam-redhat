@@ -3,4 +3,6 @@ libmisc_la_SOURCES = \
 	libmisc.h \
 	conv.c \
 	get.c \
-	ingroup.c
+	item.c \
+	ingroup.c \
+	retryio.c
