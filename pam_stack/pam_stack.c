@@ -95,7 +95,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 {
 	char **env = NULL, *service = NULL;
 	pam_handle_t *sub_pamh = NULL;
-	int debug = 0, i = 0, ret = PAM_SUCCESS;
+	int debug = 0, i = 0, ret = PAM_SUCCESS, final_ret = PAM_SUCCESS;
 
 	/* Figure out where to save the main service name. */
 	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
@@ -247,7 +247,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		syslog(LOG_DEBUG, "calling substack");
 		closelog();
 	}
-	ret = _pam_dispatch(sub_pamh, flags, which_stack);
+	final_ret = _pam_dispatch(sub_pamh, flags, which_stack);
 
 	/* Copy the useful data back up to the main stack. */
 	env = pam_getenvlist(sub_pamh); 
@@ -301,6 +301,7 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 		}
 	}
 
+	/* Wow, passing the extra data back is hard. */
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_DEBUG, "passing data back");
@@ -317,11 +318,11 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	}
 	if(debug) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_DEBUG, "returning %d (%s)", ret,
-		       pam_strerror(sub_pamh, ret));
+		syslog(LOG_DEBUG, "returning %d (%s)", final_ret,
+		       pam_strerror(sub_pamh, final_ret));
 		closelog();
 	}
 	_pam_drop(sub_pamh);
 
-	return ret;
+	return final_ret;
 }
