@@ -355,7 +355,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		}
 	}
 	/* Open the file. */
-	fd = open(path, O_WRONLY | O_CREAT, 0600);
+	fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
 	if (fd == -1) {
 		syslog(LOG_ERR, MODULE ": unable to open `%s': %m", path);
 		return PAM_SESSION_ERR;
