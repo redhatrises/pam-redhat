@@ -26,13 +26,15 @@
 	/dev/sound/* /dev/beep
 <cdrom>=/dev/cdrom* /dev/cdroms/* /dev/cdwriter* /mnt/cdrom*
 <pilot>=/dev/pilot
-<jaz>=/dev/jaz /mnt/jaz*
-<zip>=/dev/zip /mnt/pocketzip* /mnt/zip*
+<jaz>=/mnt/jaz*
+<zip>=/mnt/pocketzip* /mnt/zip*
 <ls120>=/dev/ls120 /mnt/ls120*
 <scanner>=/dev/scanner
-<camera>=/dev/camera /mnt/camera*
-<memstick>=/dev/memstick /mnt/memstick*
-<flash>=/dev/flash /mnt/flash*
+<camera>=/mnt/camera*
+<memstick>=/mnt/memstick*
+<flash>=/mnt/flash*
+<diskonkey>=/mnt/diskonkey*
+<rem_ide>=/mnt/microdrive*
 <fb>=/dev/fb /dev/fb[0-9]* \
      /dev/fb/*
 <kbd>=/dev/kbd
@@ -55,6 +57,8 @@
 <console>  0600 <camera>     0600 root
 <console>  0600 <memstick>   0600 root
 <console>  0600 <flash>      0600 root
+<console>  0600 <diskonkey>  0660 root.disk
+<console>  0600 <rem_ide>    0660 root.disk
 <console>  0600 <fb>         0600 root
 <console>  0600 <kbd>        0600 root
 <console>  0600 <joystick>   0600 root
