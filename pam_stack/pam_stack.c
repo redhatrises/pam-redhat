@@ -261,12 +261,13 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 	for(i = 0; i < sizeof(defined_items) / sizeof(defined_items[0]); i++) {
 		const void *ignored;
 		pam_get_item(pamh, defined_items[i].num, &ignored);
-		if((ignored != NULL) && debug) {
-			openlog("pam_stack", LOG_PID,
-				LOG_AUTHPRIV);
-			syslog(LOG_DEBUG, "not passing %s back up to parent",
-			       defined_items[i].name);
-			closelog();
+		if(ignored != NULL) {
+			if(debug) {
+				openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
+				syslog(LOG_DEBUG, "not passing %s back up to "
+				       "parent", defined_items[i].name);
+				closelog();
+			}
 			continue;
 		}
 		pam_get_item(sub_pamh, defined_items[i].num,

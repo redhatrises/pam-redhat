@@ -43,7 +43,7 @@ lex_set_filename(char *name) {
 
 static int
 _pc_yyerror (char *s) {
-  _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 0, "%s line %d: %s: at `%s'\n",
+  _pam_log(LOG_ERR, 0, "%s line %d: %s: at `%s'\n",
 	   filename, lineno, s, (char *)_pc_yylval);
   return 0;
 }
