@@ -1,18 +1,17 @@
 # $Id$
-
-CC=gcc
-CFLAGS=-fPIC -O2 -Wall -Werror -pedantic
-LDFLAGS=-x --shared -lpam
+CFLAGS+=-D_REENTRANT
+LDFLAGS=--shared
 
 OUT=pam_chroot.so
 
 all:	$(OUT)
 
 %.so: %.o
-	ld $(LDFLAGS) -o $@ $<
+	$(LD_D) -o $@ $<
 
 clean:
 	rm -f *.o $(OUT)
 
 install:
-	install -s -o0 -g0 -m755 $(OUT) /lib/security
+	install -m755 $(OUT) $(FAKEROOT)$(SECUREDIR)
+	install -m644 chroot.conf $(FAKEROOT)$(SCONFIGED)

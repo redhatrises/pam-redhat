@@ -47,6 +47,9 @@ static struct {
 	{PAM_RUSER, "PAM_RUSER", NULL},
 	{PAM_USER_PROMPT, "PAM_USER_PROMPT", NULL},
 	{PAM_FAIL_DELAY, "PAM_FAIL_DELAY", NULL},
+
+	{PAM_AUTHTOK, "PAM_AUTHTOK", NULL},
+	{PAM_OLDAUTHTOK, "PAM_OLDAUTHTOK", NULL},
 };
 
 static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
