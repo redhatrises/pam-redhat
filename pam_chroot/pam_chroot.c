@@ -127,3 +127,19 @@ PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh, int flags,
 {
 	return PAM_SUCCESS;
 }
+
+#ifdef PAM_STATIC
+
+/* static module data */
+
+struct pam_module _pam_chroot_modstruct = {
+	"pam_chroot",
+	NULL,
+	NULL,
+	pam_sm_acct_mgmt,
+	NULL,
+	NULL,
+	NULL
+};
+#endif
+

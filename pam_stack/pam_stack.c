@@ -393,3 +393,19 @@ static int _pam_stack_dispatch(pam_handle_t *pamh, int flags,
 
 	return final_ret;
 }
+
+#ifdef PAM_STATIC
+
+/* static module data */
+
+struct pam_module _pam_stack_modstruct = {
+	"pam_stack",
+	pam_sm_authenticate,
+	pam_sm_setcred,
+	pam_sm_acct_mgmt,
+	pam_sm_open_session,
+	pam_sm_close_session,
+	pam_sm_chauthtok,
+};
+#endif
+

@@ -478,8 +478,6 @@ struct pam_module _pam_console_modstruct = {
 
 /* end of module definition */
 
-
-
 /* supporting functions included from other .c files... */
 
 #include "regerr.c"
