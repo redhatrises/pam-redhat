@@ -121,7 +121,7 @@ optstring:	string	{$$=$1;}
 	|	/* empty */ {$$=NULL;}
 	;
 
-string:		STRING {$$=$1;}
+string:		STRING {$$=$1;} ;
 
 %%
 
