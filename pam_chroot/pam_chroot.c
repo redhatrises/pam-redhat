@@ -102,16 +102,24 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 		regfree(&name_regex);
 
 		if(!err) {
-			if(chroot(dir) == -1) {
-				syslog(LOG_ERR, "chroot(%s) failed: %s",
+			if(chdir(dir) == -1) {
+				syslog(LOG_ERR, "chdir(%s) failed: %s",
 						dir, strerror(errno));
 				ret = onerr;
 			} else {
 				if(debug) {
-					syslog(LOG_ERR, "chroot(%s) succeeded",
+					syslog(LOG_ERR, "chdir(%s) succeeded",
 							dir);
 				}
-				ret = PAM_SUCCESS;
+				if(chroot(dir) == -1) {
+					syslog(LOG_ERR, "chroot(%s) failed: %s",
+							dir, strerror(errno));
+					ret = onerr;
+				} else {
+					syslog(LOG_ERR, "chroot(%s) succeeded",
+							dir);
+					ret = PAM_SUCCESS;
+				}
 			}
 			break;
 		}
