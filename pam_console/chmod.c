@@ -21,7 +21,7 @@
    along with this program; if not, write to the Free Software Foundation,
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "../../_pam_aconf.h"
+#include "../config.h"
 #include <errno.h>
 #include <glob.h>
 #include <fnmatch.h>
@@ -134,7 +134,7 @@ change_file (const char *file, const struct mode_change *changes,
   return errors;
 }
 
-static void
+void
 chmod_set_fstab(const char *fstab)
 {
   fstab_filename = strdup(fstab);
@@ -185,7 +185,7 @@ glob_errfn(const char *pathname, int theerr) {
 
 #define DIE(n) {fprintf(stderr, "chmod failure\n"); return (n);}
 
-STATIC int
+int
 chmod_files (const char *mode, uid_t user, gid_t group,
 	     char *single_file, GSList *filelist)
 {
