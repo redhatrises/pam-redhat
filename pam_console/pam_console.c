@@ -89,7 +89,7 @@ _args_parse(int argc, const char **argv)
     for (; argc-- > 0; ++argv) {
 	if (!strcmp(*argv,"debug"))
 	    debug = 1;
-	else if (!strcmp(*argv,"allow_nonroot"))
+	else if (!strcmp(*argv,"allow_nonroot_tty"))
 	    allow_nonroot = 1;
 	else if (!strncmp(*argv,"permsfile=",10))
 	    strcpy(consoleperms,*argv+10);

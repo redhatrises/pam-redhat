@@ -1,6 +1,6 @@
 .\" Copyright 1999 Red Hat Software, Inc.
 .\" Written by Michael K. Johnson <johnsonm@redhat.com>
-.TH pam_console 8 1999/2/4 "Red Hat Software" "System Administrator's Manual"
+.TH pam_console 8 2000/7/11 "Red Hat" "System Administrator's Manual"
 .SH NAME
 pam_console \- control permissions for users at the system console
 .SH SYNOPSIS
@@ -34,6 +34,8 @@ thing in weird cases.
 .SH ARGUMENTS
 .IP debug
 turns on debugging
+.IP allow_nonroot_tty
+gain console locks and change permissions even if the TTY's owner is not root.
 .IP permsfile=\fIfilename\fP
 tells pam_console.so to get its permissions database from a different
 file than /etc/security/console.perms
