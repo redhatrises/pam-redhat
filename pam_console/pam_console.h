@@ -26,8 +26,13 @@ struct config_s {
 
 /* pam_console.c */
 
-static void
-_pam_log(int err, int debug_p, const char *format, ...);
+void _pam_log(int err, int debug_p, const char *format, ...);
+void *_do_malloc(size_t req);
+
+/* config.l */
+
+extern int lineno;
+extern char *filename;
 
 /* config.y */
 
