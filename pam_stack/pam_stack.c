@@ -332,7 +332,7 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 	struct stack_data *stack_data = NULL, *stack_this;
 
 	/* Save the main service name. */
-	ret = pam_get_item(pamh, PAM_SERVICE, (const void **) &parent_service);
+	ret = libmisc_get_string_item(pamh, PAM_SERVICE, &parent_service);
 	if (ret != PAM_SUCCESS) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "pam_get_item(PAM_SERVICE) returned %s",
