@@ -7,3 +7,5 @@ without autoconf support.
 0.78-1: Mon Jan 10 2005
 
 * Backported some changes from head (tmraz)
+* pam_localuser, pam_succeed_if, pam_xauth are no longer developed here
+  - they were accepted to upstream Linux PAM repository
