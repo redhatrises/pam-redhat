@@ -170,46 +170,6 @@ check_console_name (char *consolename) {
     char full_path[PATH_MAX];
 
     _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "check console %s", consolename);
-    memset(&st, 0, sizeof(st));
-
-    if (lstat(consolename, &st) != -1) {
-        statted = 1;
-    }
-    if (!statted) {
-        strcpy(full_path, "/dev/");
-        strncat(full_path, consolename, sizeof(full_path) - 1 - strlen(full_path));
-        if (lstat(full_path, &st) != -1) {
-           statted = 1;
-        }
-    }
-    if (!statted && (consolename[0] == ':')) {
-        strcpy(full_path, "/tmp/.X11-unix/X");
-        strncat(full_path, consolename + 1,
-                sizeof(full_path) - 1 - strlen(full_path));
-        if (lstat(full_path, &st) != -1) {
-           statted = 1;
-        }
-    }
-
-    if (statted) {
-        int ok = 0;
-        if (S_ISCHR(st.st_mode)) {
-            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "console %s is a character device", consolename);
-            ok = 1;
-        }
-        if (S_ISSOCK(st.st_mode) && (st.st_uid == 0)) {
-            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "console %s is a root-owned socket", consolename);
-            ok = 1;
-        }
-        if (!ok) {
-            _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, 1, "%s is not a valid console", consolename);
-            return 0;
-        }
-    } else {
-        _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, 1, "can't find device for %s", consolename);
-        return 0;
-    }
-
     if (consoleNameCache != consolename) {
 	consoleNameCache = consolename;
 	if (consoleHash) g_hash_table_destroy(consoleHash);
@@ -232,6 +192,57 @@ check_console_name (char *consolename) {
 	    }
 	}
     }
+
+    /* add some policy here -- not really the PAM way of doing things, but
+       it gives us an extra measure of security in case of misconfiguration */
+    memset(&st, 0, sizeof(st));
+    statted = 0;
+
+    if (lstat(consolename, &st) != -1) {
+        statted = 1;
+    }
+    if (!statted) {
+        strcpy(full_path, "/dev/");
+        strncat(full_path, consolename,
+                sizeof(full_path) - 1 - strlen(full_path));
+        if (lstat(full_path, &st) != -1) {
+           statted = 1;
+        }
+    }
+    if (!statted && (consolename[0] == ':')) {
+        size_t l;
+        char *dot = NULL;
+        strcpy(full_path, "/tmp/.X11-unix/X");
+        l = sizeof(full_path) - 1 - strlen(full_path);
+        dot = strchr(consolename + 1, '.');
+        if (dot != NULL) {
+            l = (l < dot - consolename - 1) ? l : dot - consolename - 1;
+        }
+        strncat(full_path, consolename + 1, l);
+        if (lstat(full_path, &st) != -1) {
+           statted = 1;
+        }
+    }
+
+    if (statted) {
+        int ok = 0;
+        if (S_ISCHR(st.st_mode)) {
+            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "console %s is a character device", consolename);
+            ok = 1;
+        }
+        if (S_ISSOCK(st.st_mode) && (st.st_uid == 0)) {
+            _pam_log(LOG_PID|LOG_AUTHPRIV|LOG_ERR, 1, "console %s is a root-owned X11 socket", consolename);
+            ok = 1;
+        }
+        if (!ok) {
+            _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, 1, "%s is not a valid console device", consolename);
+            found = 0;
+        }
+    } else {
+        _pam_log(LOG_PID|LOG_DAEMON|LOG_ERR, 1, "can't find device to examine for %s", consolename);
+        found = 0;
+    }
+
     if (found)
 	return 1;
 
