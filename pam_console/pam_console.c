@@ -107,9 +107,11 @@ is_root(const char *username) {
      * whole point of this is to avoid doing unnecessary file ops
      */
     struct passwd *p, pwd;
-    char buffer[LINE_MAX];
+    char ubuf[LINE_MAX];
 
-    if((getpwnam_r(username, &pwd, buffer, sizeof(buffer), &p) != 0) || (!p)) {
+    if (getpwnam_r(username, &pwd, ubuf, sizeof(ubuf), &p) != 0)
+	p = NULL;
+    if (!p) {
         _pam_log(LOG_ERR, FALSE,
         	 "getpwnam failed for %s", username);
         return 0;
@@ -264,13 +266,20 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
     char *lockfile = NULL;
     char *appsfile = NULL;
     char *service;
-    char buffer[LINE_MAX];
+    char gbuf[LINE_MAX];
     int ret = PAM_AUTH_ERR;
 
     D(("called."));
     _args_parse(argc, argv);
+
+    /* FIXME: this appears to be unnecessary, since I always see pam_rootok
+     * listed before this module -- remove if not explicitly required by the
+     * pam_console white paper */
     if (!getuid()) return PAM_SUCCESS; /* root always trivially succeeds */
-    if((getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &p) != 0) || (!p)) {
+
+    if (getpwuid_r(getuid(), &pwd, gbuf, sizeof(gbuf), &p) != 0)
+	p = NULL;
+    if (!p) {
 	_pam_log(LOG_ERR, FALSE, "user with id %d not found", getuid());
 	return PAM_AUTH_ERR;
     }

@@ -391,7 +391,7 @@ static int
 _args_init(int argc, const char **argv, int *ret, pam_handle_t *pamh)
 {
     struct passwd *pw = NULL, pwd;
-    char buf[LINE_MAX];
+    char ubuf[LINE_MAX];
     struct action action;
 
     memset(&action, 0, sizeof(action));
@@ -431,8 +431,9 @@ _args_init(int argc, const char **argv, int *ret, pam_handle_t *pamh)
     }
 
     if (!name[SourceUser]) {
-	getpwuid_r(getuid(), &pwd, buf, sizeof(buf), &pw);
-	if (pw != &pwd) {
+	if (getpwuid_r(getuid(), &pwd, ubuf, sizeof(ubuf), &pw) != 0)
+	    pw = NULL;
+	if (pw == NULL) {
 	    _pam_log(LOG_ERR, "_args_init: source user not found");
 	    *ret = PAM_SESSION_ERR; return -1;
 	}
@@ -449,8 +450,9 @@ _args_init(int argc, const char **argv, int *ret, pam_handle_t *pamh)
 	*ret = PAM_SESSION_ERR; return -1;
     }
     if (!home[TargetUser]) {
-	getpwnam_r(name[TargetUser], &pwd, buf, sizeof(buf), &pw);
-	if (pw != &pwd) {
+	if (getpwnam_r(name[TargetUser], &pwd, ubuf, sizeof(ubuf), &pw) != 0)
+	    pw = NULL;
+	if (pw == NULL) {
 	    _pam_log(LOG_ERR, "_args_init: target user %s not found",
 		     name[TargetUser]);
 	    *ret = PAM_SESSION_ERR; return -1;

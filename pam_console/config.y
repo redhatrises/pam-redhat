@@ -278,7 +278,9 @@ set_permissions(const char *consolename, const char *username, int nonroot_ok) {
 	if (!check_console_name(consolename, nonroot_ok)) return -1;
     }
 
-    if((getpwnam_r(username, &passwd, ubuf, sizeof(ubuf), &p) != 0) || (!p)) {
+    if (getpwnam_r(username, &passwd, ubuf, sizeof(ubuf), &p) != 0)
+	p = NULL;
+    if (!p) {
 	_pam_log(LOG_ERR, FALSE, "getpwnam failed for \"%s\"", username);
 	return -1;
     }
@@ -310,14 +312,18 @@ reset_permissions(const char *consolename, int nonroot_ok) {
     for (cl = configList; cl; cl = cl->next) {
 	c = cl->data;
 	if (g_hash_table_lookup(consoleHash, c->console_class)) {
-            if((getpwnam_r(c->revert_owner ? c->revert_owner : "root", &passwd,
-                           ubuf, sizeof(ubuf), &p) != 0) || (!p)) {
+            if (getpwnam_r(c->revert_owner ? c->revert_owner : "root", &passwd,
+                           ubuf, sizeof(ubuf), &p) != 0)
+		p = NULL;
+	    if (!p) {
 		_pam_log(LOG_ERR, FALSE, "getpwnam failed for %s",
 			 c->revert_owner ? c->revert_owner : "root");
 		return -1;
 	    }
-            if((getgrnam_r(c->revert_group ? c->revert_group : "root", &group,
-                           gbuf, sizeof(gbuf), &g) != 0) || (!g)) {
+            if (getgrnam_r(c->revert_group ? c->revert_group : "root", &group,
+                           gbuf, sizeof(gbuf), &g) != 0)
+		g = NULL;
+	    if (!g) {
                 _pam_log(LOG_ERR, FALSE, "getgrnam failed for %s",
                          c->revert_group ? c->revert_group : "root");
                 return -1;
