@@ -23,7 +23,8 @@
 	 /dev/floppy/* /mnt/floppy*
 <sound>=/dev/dsp* /dev/audio* /dev/midi* \
 	/dev/mixer* /dev/sequencer \
-	/dev/sound/* /dev/beep
+	/dev/sound/* /dev/beep \
+	/dev/snd/* 
 <cdrom>=/dev/cdrom* /dev/cdroms/* /dev/cdwriter* /mnt/cdrom*
 <pilot>=/dev/pilot
 <jaz>=/mnt/jaz*
