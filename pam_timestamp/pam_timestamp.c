@@ -72,7 +72,7 @@ check_dir_perms(const char *tdir)
 	struct stat st;
 	int i;
 	/* Check that the directory is "safe". */
-	if (strlen(tdir) == 0) {
+	if ((tdir == NULL) || (strlen(tdir) == 0)) {
 		return PAM_AUTH_ERR;
 	}
 	memset(scratch, 0, sizeof(scratch));
@@ -127,10 +127,7 @@ check_tty(const char *tty)
 {
 	struct stat st;
 	/* Check that we're not being set up to take a fall. */
-	if (tty == NULL) {
-		return NULL;
-	}
-	if (strlen(tty) == 0) {
+	if ((tty == NULL) || (strlen(tty) == 0)) {
 		return NULL;
 	}
 	/* Make sure the tty isn't a directory. */
