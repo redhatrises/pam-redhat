@@ -23,6 +23,6 @@ archive: tag
 	@rm -f pam-redhat-$(VERSION).tar.gz 
 	@rm -rf /tmp/pam-redhat-$(VERSION)
 	cd /tmp; cvs -d $(CVS_ROOT) export -r$(CVSTAG) -d pam-redhat-$(VERSION) pam-redhat
-	@dir=$$PWD; cd /tmp/pam-redhat-$(VERSION); autoreconf; ./configure ; make dist ; cp -v pam-redhat-$(VERSION).tar.gz $$dir/
+	@dir=$$PWD; cd /tmp/pam-redhat-$(VERSION); autoreconf -i; ./configure ; make dist ; cp -v pam-redhat-$(VERSION).tar.gz $$dir/
 	@rm -rf /tmp/pam-redhat-$(VERSION)
 	@echo "The archive is in pam-redhat-$(VERSION).tar.gz" 
