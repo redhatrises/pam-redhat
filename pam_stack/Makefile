@@ -4,6 +4,8 @@
 # what you are doing!).
 #
 
+include ../../default.defs
+
 TITLE=pam_stack
 
 #
@@ -26,7 +28,7 @@ CFLAGS = $(RPM_OPT_FLAGS) -DPAM_READ_BOTH_CONFS -D_GNU_SOURCE -DLINUX_PAM \
 	-fPIC -Dlinux
 DYNAMIC = -DPAM_DYNAMIC
 MAN8 = pam_stack.8
-MAN8DIR = /usr/man/man8
+MAN8DIR = $(MANDIR)/man8
 MKDIR = mkdir -p
 CHMOD = chmod
 FLEX_OPTS = -Cr # -d

@@ -4,6 +4,8 @@
 # what you are doing!).
 #
 
+include ../../default.defs
+
 TITLE=pam_console
 
 #
@@ -29,8 +31,8 @@ CFLAGS = $(RPM_OPT_FLAGS) -DPAM_READ_BOTH_CONFS -D_GNU_SOURCE -DLINUX_PAM \
 DYNAMIC = -DPAM_DYNAMIC
 MAN5 = console.apps.5 console.perms.5
 MAN8 = pam_console.8
-MAN5DIR = /usr/man/man5
-MAN8DIR = /usr/man/man8
+MAN5DIR = $(MANDIR)/man5
+MAN8DIR = $(MANDIR)/man8
 CONF = console.perms
 MKDIR = mkdir -p
 CHMOD = chmod
