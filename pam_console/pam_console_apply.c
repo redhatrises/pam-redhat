@@ -37,7 +37,9 @@ _pam_log(int err, int debug_p, const char *format, ...)
 {
 	va_list args;
 	if (debug_p && !debug) return;
+        va_start(args, format);
 	fprintf(stderr, format, args);
+	va_end(args);
 }
 
 int
@@ -46,7 +48,7 @@ main(int argc, char **argv)
 	int fd;
 	int i, c;
 	struct stat st;
-	char *consoleuser;
+	char *consoleuser = NULL;
 	enum {Set, Reset} sense = Set;
 
 	while((c = getopt(argc, argv, "c:f:r")) != -1) {

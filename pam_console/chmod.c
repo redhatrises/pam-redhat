@@ -191,7 +191,7 @@ chmod_files (const char *mode, uid_t user, gid_t group,
   struct mode_change *changes;
   int errors = 0;
   glob_t result;
-  char *filename;
+  char *filename = NULL;
   int flags = GLOB_NOCHECK;
   int i, rc;
 
