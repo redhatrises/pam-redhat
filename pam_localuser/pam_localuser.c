@@ -16,8 +16,8 @@
 
 #define PAM_SM_AUTH
 #define PAM_SM_ACCOUNT
-#include <security/pam_modules.h>
-#include <security/_pam_macros.h>
+#include "../../libpam/include/security/pam_modules.h"
+#include "../../libpam/include/security/_pam_macros.h"
 
 #define MODULE_NAME "pam_localuser"
 

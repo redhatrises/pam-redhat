@@ -1,725 +1,5 @@
-/* pam_xauth module */
-
 /*
- * Written by Michael K. Johnson <johnsonm@redhat.com> 1999/04/10
- * A few functions loosely based on functions from Cristian Gafton's
- * pam_wheel module.  Others are loosely based on pam_console by
- * Michael K. Johnson.
- */
-
-#include <_pam_aconf.h>
-
-#include <pwd.h>
-#include <grp.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <syslog.h>
-#include <stdarg.h>
-#include <time.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/fsuid.h>
-#include <sys/wait.h>
-
-/* PAM is stupid about some things, <sigh> */
-#define CAST_ME_HARDER (const void**)
-
-#define PAM_SM_SESSION
-#include <security/pam_modules.h>
-#include <security/_pam_macros.h>
-
-#ifndef MAP_FAILED
-#define MAP_FAILED -1
-#endif
-
-#define COOKIE_PLACEHOLDER "placeholderplaceholder"
-
-enum user_context {
-  SourceUser = 0,
-  TargetUser = 1,
-};
-
-enum access_type {
-  Map,
-  Delete,
-};
-
-enum access_level {
-  RdOnly = O_RDONLY,
-  WrOnly = O_WRONLY,
-  RdWr   = O_RDWR,
-  Create = O_CREAT,
-};
-
-struct action {
-  enum user_context context;
-  enum access_type  type;
-  enum access_level level;
-  char *filename; /* always relative to .xauth subdirectory in home directory */
-  char *data;
-  int size;      /* maximum size for newly-created file */
-  int map_size;  /* size actually mapped, private to do_file and do_close */
-  int fd;
-  struct stat sb;
-};
-
-enum direction {
-  reading = 0,
-  writing = 1,
-};
-
-static int debug = 0;
-static int log_facility = LOG_AUTHPRIV;
-static int systemuser = 99;
-static char *xauthority = NULL;
-static const char *xauthdefpath = "/usr/X11R6/bin/xauth";
-static char *xauth = NULL;
-static char *display = NULL;
-static char *name[2] = {NULL, NULL};
-static char *home[2] = {NULL, NULL};
-static uid_t user[2] = {0, 0};
-static gid_t group[2] = {0, 0};
-
-/* some syslogging */
-static void
-_pam_log(int err, const char *format, ...)
-{
-    va_list args;
-
-    if ((err == LOG_DEBUG) && !debug) return;
-
-    va_start(args, format);
-    openlog("pam_xauth", LOG_CONS|LOG_PID, log_facility);
-    vsyslog(err, format, args);
-    closelog();
-    va_end(args);
-}
-
-/* generic file access
- * Returns 0 on failure, 1 on success
- * Iff action.type is Map, action.fd needs to be do_close'd later
- * Creating a file should create any necessary intermediate
- * directory structure, all with mode 700 (handled by umask :-).
- */
-static int
-do_file(struct action *action)
-{
-    char *p, *xauthpath, *path;
-    int restat;
-
-    setfsuid(user[action->context]);
-    /* need enough space for expanded "$HOME/.xauth/<action->filename>" */
-    path = alloca(strlen(home[action->context]) + sizeof("/.xauth/") +
-		  strlen(action->filename) + 1);
-    xauthpath = alloca(strlen(home[action->context]) + sizeof("/.xauth") + 1);
-    if (!path || !xauthpath) {
-	_pam_log(LOG_ERR, "do_file: out of memory");
-	setfsuid(0); return 0;
-    }
-
-    sprintf(xauthpath, "%s/.xauth", home[action->context]);
-    _pam_log(LOG_DEBUG, "do_file: trying to create dir %s towards %s for %d",
-	     xauthpath, action->filename, user[action->context]);
-    if ((mkdir(xauthpath, 0700) == -1) && (errno != EEXIST)) {
-	_pam_log(LOG_ERR, "do_file: could not create dir %s", xauthpath);
-	setfsuid(0); return 0;
-    }
-
-    strcpy(path, xauthpath);
-    strcat(path, "/");
-    strcat(path, action->filename);
-    _pam_log(LOG_DEBUG, "do_file: proceeding with file %s", path);
-
-    /* if action->type is Delete, nuke the file */
-    if (action->type == Delete) {
-	if (unlink(path)) {
-	    _pam_log(LOG_ERR, "do_file: could not delete %s", path);
-	    setfsuid(0); return 0;
-	}
-	setfsuid(0); return 1;
-    }
-
-    /* action->type must be Map; create any intermediate directories */
-    p = action->filename;
-    while (*p) {
-	while (p && (*p != '/') && (*p != '\0')) p++;
-	if (*p == '/') {
-	    strcpy(path, xauthpath);
-	    strcat(path, "/");
-	    strncat(path, action->filename, p - action->filename);
-	    if (mkdir(path, 0700) && errno != EEXIST) {
-		_pam_log(LOG_ERR, "do_file: could not create dir %s", path);
-		setfsuid(0); return 0;
-	    } else {
-		_pam_log(LOG_DEBUG, "do_file: made intermediate dir %s", path);
-	    }
-	}
-	if (*p) p++;
-    }
-
-    restat = 0;
-    strcpy(path, xauthpath);
-    strcat(path, "/");
-    strcat(path, action->filename);
-    if (stat(path, &action->sb) == -1) {
-	_pam_log(LOG_DEBUG, "do_file: could not find %s", path);
-	restat = 1;
-    } else {
-     	action->size = (action->size > action->sb.st_size) ? action->size : action->sb.st_size;
-    }
-    action->map_size = action->size+1; /* leave room for \0 */
-
-    action->fd = open(path, action->level, 0600);
-    if (action->fd == -1) {
-	_pam_log(LOG_DEBUG, "do_file: could not open %s", path);
-	setfsuid(0); return 0;
-    }
-    if (restat && fstat(action->fd, &action->sb)) {
-	_pam_log(LOG_ERR, "do_file: could not fstat %s", path);
-	setfsuid(0); return 0;
-    }
-    if ((action->level & RdWr) || (action->level & WrOnly)) {
-	/* writable map */
-	_pam_log(LOG_DEBUG, "readwrite map for %s", path);
-	ftruncate(action->fd, action->map_size);
-	action->data = mmap(NULL, action->map_size,
-		      (action->level|RdWr) ? PROT_READ|PROT_WRITE : PROT_WRITE,
-		      MAP_FILE|MAP_SHARED, action->fd, 0);
-    } else {
-	/* readonly map we will not expand the size no matter what */
-	_pam_log(LOG_DEBUG, "readonly map for %s", path);
-	action->map_size = action->size = action->sb.st_size;
-	action->data = mmap(NULL, action->map_size, PROT_READ, MAP_FILE|MAP_SHARED, action->fd, 0);
-    }
-    if (action->data == MAP_FAILED) {
-	action->data = NULL;
-	_pam_log(LOG_ERR, "do_file: could not mmap %s", path);
-	setfsuid(0); return 0;
-    }
-    if ((action->level & RdWr) || (action->level & WrOnly)) {
-	action->data[action->map_size-1] = '\0';
-	if (action->sb.st_size < action->map_size)
-	    action->data[action->sb.st_size] = '\0';
-    }
-    setfsuid(0);
-    _pam_log(LOG_DEBUG, "do_file: success for file %s", path);
-    return 1;
-}
-
-static void
-do_close(struct action action)
-{
-    _pam_log(LOG_DEBUG, "do_close: action.size = %d, action.map_size = %d", action.size, action.map_size);
-    setfsuid(user[action.context]);
-    munmap(action.data, action.map_size);
-    if ((action.level & RdWr) || (action.level & WrOnly)) {
-	_pam_log(LOG_DEBUG, "do_file: ftruncating to %d", action.size);
-	ftruncate(action.fd, action.size);
-    }
-    close(action.fd);
-    setfsuid(0);
-}
-
-/* looks for the user needle in the file haystack;
- * returns 1 on success, 0 on failure
- */
-static int
-find_user(enum user_context needle, struct action haystack)
-{
-    char *wordstart, *wordend;
-    int  needlen, wordlen;
-
-    _pam_log(LOG_DEBUG, "find_user: looking for name %s in file %s",
-	     name[needle], haystack.filename);
-    needlen = strlen(name[needle]);
-    wordstart = wordend = haystack.data;
-    while (wordend < haystack.data+haystack.size) {
-        if ((*wordstart == '*') &&
-	    ((*(wordstart+1) == '\n') ||
-	     (wordstart+1 >= haystack.data+haystack.size))) return 1;
-	while ((*wordend != '\n') && (wordend < haystack.data+haystack.size))
-	    wordend++;
-	wordlen = wordend - wordstart;
-	_pam_log(LOG_DEBUG, "find_user: n = %d, w = %d", needlen, wordlen);
-	if ((needlen == wordlen) &&
-	    !strncmp(name[needle], wordstart, needlen)) {
-	    _pam_log(LOG_DEBUG, "find_user: found %s", name[needle]);
-	    return 1;
-	}
-	if (wordend >= haystack.data+haystack.size) break;
-	wordstart = ++wordend;
-    }
-
-    _pam_log(LOG_DEBUG, "find_user: did not find %s", name[needle]);
-    return 0;
-}
-
-
-
-
-/* run an xauth command securely
- * cannot use popen() because it does not setuid(getuid()) in the
- * child process before calling system()
- */
-static void
-call_xauth(char **data, enum user_context c, enum direction direction, char *path, ...)
-{
-    int tube[2];
-    int status;
-    pid_t child_pid;
-
-    pipe(tube);
-
-    child_pid = fork();
-
-    /* catch any fork() errors */
-    if (child_pid == -1) {
-	_pam_log(LOG_ERR, "call_xauth: fork error"); return;
-    }
-
-    if (child_pid == 0) {
-	char *args[10]; /* known to be more than enough */
-	int argindex;
-	char *arg;
-	va_list ap;
-	va_start(ap, path); /* no va_end because we exec instead... */
-
-	setuid(0);
-	setgroups(0, NULL);
-	setgid(group[c]);
-	setreuid(user[c], user[c]);
-
-	/* modify the environment appropriately -- no need to sanitize
-	 * because we are working only within an authenticated user
-	 * environment -- user[c] is known to be authenticated at this
-	 * stage
-	 */
-	setenv("HOME", home[c], 1);
-	if ((c == SourceUser) && xauthority && xauthority[0]) {
-	    setenv("XAUTHORITY", xauthority, 1);
-	}
-	_pam_log(LOG_DEBUG, "call_xauth: setuid to %d for %s with %s, "
-		 "DISPLAY = `%s', HOME = `%s', and XAUTHORITY = `%s'",
-		 user[c], (direction == reading) ? "reading" : "writing", path,
-		 display ?: "(null)",
-		 getenv("HOME") ?: "(null)",
-		 getenv("XAUTHORITY") ?: "(null)");
-
-	/* create the argvector */
-	memset(args, 0, sizeof(args));
-	args[0] = path;
-	for(argindex = 1; (arg = va_arg(ap, char *)) && (argindex < 9); argindex++) {
-	    args[argindex] = arg;
-	}
-    
-	if (direction == reading) {
-	    dup2(tube[1], STDOUT_FILENO);
-	    close(STDIN_FILENO);
-	    close(STDERR_FILENO);
-	} else {
-	    dup2(tube[0], STDIN_FILENO);
-	    close(STDOUT_FILENO);
-	    close(STDERR_FILENO);
-	}
-        close(tube[0]);
-        close(tube[1]);
-	execv(path, args);
-	_pam_log(LOG_DEBUG, "call_xauth: execve failed for %s", path);
-	_exit(1);
-    }
-
-    /* read/write output/input */
-    if (direction == reading) {
-	int datasize = 256; /* enough for normal cookies */
-	int sofar = 0;
-	int charsread = 0;
-
-	close(tube[1]);
-	*data = malloc(datasize);
-	if (!*data) {
-	    _pam_log(LOG_ERR, "call_xauth: out of memory"); return;
-	}
-	*data[0] = '\0';
-	charsread = sofar = read(tube[0], *data, datasize);
-	while (charsread > 0) {
-	    if (sofar >= datasize-1) {
-		datasize += 256;
-		*data = realloc(*data, datasize);
-		if (!*data) {
-		    _pam_log(LOG_ERR, "call_xauth: out of memory");
-		    return;
-		}
-		memset(*data + sofar, 0, datasize - sofar);
-	    }
-	    charsread = read(tube[0], *data+sofar, datasize-sofar);
-	    if(charsread > 0) {
-		sofar += charsread;
-	    }
-	}
-	_pam_log(LOG_DEBUG, "call_xauth: read %d bytes", sofar);
-    } else {
-	close(tube[0]);
-	if (data && *data) write(tube[1], *data, strlen(*data));
-	close(tube[1]);
-    }
-
-    waitpid(child_pid, &status, 0);
-    if (WIFEXITED(status)) {
-	_pam_log(LOG_DEBUG, "call_xauth: child returned %d",
-		 WEXITSTATUS(status));
-    } else {
-	_pam_log(LOG_ERR, "call_xauth: child got signal %d",
-		 WIFSIGNALED(status)?WTERMSIG(status):WSTOPSIG(status));
-    }
-    close(tube[0]);
-    close(tube[1]);
-}
-
-
-
-/* return 0 means caller should export/purge
- * return -1 means caller should return immediately
- * return -2 means caller should return after updating refcount
- */
-static int
-_args_init(int argc, const char **argv, int *ret, pam_handle_t *pamh)
-{
-    struct passwd *pw = NULL, pwd;
-    char ubuf[LINE_MAX];
-    struct action action;
-
-    memset(&action, 0, sizeof(action));
-
-    /* step through arguments */
-    for (; argc-- > 0; ++argv) {
-        /* generic options */
-        if (!strcmp(*argv, "debug")) {
-	    debug = 1;
-        } else if (!strcmp(*argv, "logpub")) {
-	    log_facility = LOG_DAEMON;
-	} else if (!strncmp(*argv, "warndays=", 9)) {
-	    ; /* ignore obsolete argument */
-	} else if (!strncmp(*argv, "warnhours=", 10)) {
-	    ; /* ignore obsolete argument */
-	} else if (!strncmp(*argv, "systemuser=", 11)) {
-	    systemuser = atoi(*argv+11);
-	} else if (!strncmp(*argv, "xauthpath=", 10)) {
-	    if (!xauth) xauth = strdup(*argv+10);
-	    if (!xauth) {
-		_pam_log(LOG_ERR, "_args_init: out of memory");
-		*ret = PAM_SESSION_ERR; return -1;
-	    }
-	} else {
-            _pam_log(LOG_ERR, "_args_init: unknown option; %s",*argv);
-        }
-    }
-    if (!xauth)
-	(const char *) xauth = xauthdefpath; /* avoid silly warning */
-
-    if (getenv("XAUTHORITY")) {
-	xauthority = strdup(getenv("XAUTHORITY"));
-	unsetenv("XAUTHORITY");
-	_pam_log(LOG_DEBUG, "_args_init: unset XAUTHORITY (was %s)", xauthority);
-    } else {
-	_pam_log(LOG_DEBUG, "_args_init: XAUTHORITY not set");
-    }
-
-    if (!name[SourceUser]) {
-	if (getpwuid_r(getuid(), &pwd, ubuf, sizeof(ubuf), &pw) != 0)
-	    pw = NULL;
-	if (pw == NULL) {
-	    _pam_log(LOG_ERR, "_args_init: source user not found");
-	    *ret = PAM_SESSION_ERR; return -1;
-	}
-	name[SourceUser] = strdup(pw->pw_name);
-	user[SourceUser] = pw->pw_uid;
-	group[SourceUser] = pw->pw_gid;
-	home[SourceUser] = strdup(pw->pw_dir);
-    }
-
-    /* pam_get_user is really only for auth modules, not session modules */
-    if (!name[TargetUser]) pam_get_item(pamh, PAM_USER, CAST_ME_HARDER &name[TargetUser]);
-    if (!name[TargetUser]) {
-	_pam_log(LOG_ERR, "_args_init: no target user");
-	*ret = PAM_SESSION_ERR; return -1;
-    }
-    if (!home[TargetUser]) {
-	if (getpwnam_r(name[TargetUser], &pwd, ubuf, sizeof(ubuf), &pw) != 0)
-	    pw = NULL;
-	if (pw == NULL) {
-	    _pam_log(LOG_ERR, "_args_init: target user %s not found",
-		     name[TargetUser]);
-	    *ret = PAM_SESSION_ERR; return -1;
-	}
-	user[TargetUser] = pw->pw_uid;
-	group[TargetUser] = pw->pw_gid;
-	home[TargetUser] = strdup(pw->pw_dir);
-    }
-
-    if (!home[TargetUser] || !home[SourceUser] || !name[SourceUser]) {
-	/* not that we'll be able to log in these circumstances, but... */
-	_pam_log(LOG_ERR, "out of memory");
-	*ret = PAM_SESSION_ERR; return -1;
-    }
-
-    if (user[TargetUser] == user[SourceUser]) {
-	_pam_log(LOG_DEBUG, "target = source = %s(%d), nothing to do",
-		 name[SourceUser], user[SourceUser]);
-	*ret = PAM_SUCCESS; return -1;
-    }
-
-    if ((user[SourceUser] != 0) && (user[SourceUser] <= systemuser)) {
-	_pam_log(LOG_DEBUG, "not touching system user %s(%d)",
-		 name[SourceUser], user[SourceUser]);
-	*ret = PAM_SUCCESS; return -1;
-    }
-
-    if (!display) {
-	char *disptemp = NULL, *p = NULL;
-	/* no need to sanitize $DISPLAY because it is used only in
-	 * providing (source) user's context :-)
-	 */
-	p = getenv("DISPLAY");
-	if (!p || (p[0] == '\0')) {
-	    _pam_log(LOG_DEBUG, "_pam_xauth: $DISPLAY missing");
-	    *ret = PAM_SESSION_ERR; return -1;
-	}
-	/* use xauth to canonicalize $DISPLAY */
-	call_xauth(&disptemp, SourceUser, reading, xauth, "list", p, NULL);
-	if (!disptemp || !*disptemp) {
-	    _pam_log(LOG_DEBUG, "_pam_xauth: xauth missing display");
-	    if(disptemp) free(disptemp);
-	    *ret = PAM_SESSION_ERR; return -1;
-	}
-	/* cut off the part we want */
-	p = disptemp;
-	while (*p && *p != ' ') p++;
-	*p = '\0';
-	display = strdup(disptemp);
-	if (!display) {
-	    _pam_log(LOG_ERR, "_pam_xauth: out of memory");
-	    *ret = PAM_SESSION_ERR; return -1;
-	}
-	_pam_log(LOG_DEBUG, "canonical display name is %s", display);
-	free(disptemp);
-    }
-
-    /* from this point on, we still want to manage reference counts even
-     * in the case of failure, so that changes to config files do not
-     * mess up reference counting.  Before this, there's not enough
-     * data prepared to do reference counting.
-     */
-
-    action.context=TargetUser;
-    action.type=Map;
-    action.level=RdOnly;
-    action.size=0;
-    (const char *) action.filename="import";
-
-    if (do_file(&action)) {
-	/* only allow if source is in the target's import file */
-	if (!find_user(SourceUser, action)) {
-	    _pam_log(LOG_DEBUG, "target user %s rejects cookies from source user %s",
-		     name[TargetUser], name[SourceUser]);
-	    *ret = PAM_SESSION_ERR;
-	    do_close(action);
-	    return -2;
-	}
-	do_close(action);
-    } /* else unconditionally allowed */
-    _pam_log(LOG_DEBUG, "target user %s accepts cookies from source user %s",
-	     name[TargetUser], name[SourceUser]);
-
-    /* avoid silly const warning */
-    action.context=SourceUser;
-    action.type=Map;
-    action.level=RdOnly;
-    action.size=0;
-    (const char *) action.filename="export";
-    
-    if (do_file(&action)) {
-	/* only allow if target is in the source's export file */
-	if (!find_user(TargetUser, action)) {
-	    _pam_log(LOG_DEBUG, "source user %s withholds cookies from target user %s",
-		     name[SourceUser], name[TargetUser]);
-	    *ret = PAM_SESSION_ERR;
-	    do_close(action);
-	    return -2;
-	}
-	do_close(action);
-    } else {
-	/* only allow if target is root */
-	if (user[TargetUser] != 0) {
-	    _pam_log(LOG_DEBUG, "source user %s implicitly withholds cookies from non-root target user %s",
-		     name[SourceUser], name[TargetUser]);
-	    *ret = PAM_SUCCESS; return -2;
-	}
-    }
-
-    return 0;
-}
-
-
-/* change the reference count
- * returns -1 on failure, refcount on success
- */
-static int
-mangle_refcount(pam_handle_t *pamh, int increment, char *cookie)
-{
-    struct action action;
-    int count;
-    char *oldcookie;
-
-    memset(&action, 0, sizeof(action));
-
-    _pam_log(LOG_DEBUG, "modify refcount by %d", increment);
-    if (!name[TargetUser] || !name[SourceUser] || !display) return -1;
-
-    /* "refcount/<name[TargetUser]>/<display>" */
-    action.filename=alloca(strlen("refcount/") + strlen(name[TargetUser]) + 1 + strlen(display) + 1);
-    if (!action.filename) {
-	_pam_log(LOG_ERR, "mangle_refcount: out of memory");
-	setfsuid(0); return 0;
-    }
-    sprintf(action.filename, "refcount/%s/%s", name[TargetUser], display);
-    action.context=SourceUser;
-    action.type=Map;
-    action.level=RdWr|Create;
-
-    /* make sure that a created file is big enough for the cookie, if we were
-     * passed one -- note that we need to calculate a minimum size which can
-     * hold the string created with snprintf() below */
-    action.size = strlen("0") + 1 + strlen(cookie ?: COOKIE_PLACEHOLDER) + 1;
-    if (!do_file(&action)) {
-	_pam_log(LOG_ERR, "could not open %s", action.filename);
-	return -1;
-    }
-
-    count = atoi(action.data);
-    count += increment;
-    for (oldcookie = action.data; *oldcookie && *oldcookie != ' '; oldcookie++);
-    if (*oldcookie == ' ') {
-	oldcookie++;
-	if (cookie) {
-	    if (strncmp(oldcookie, cookie, strlen(cookie))) {
-		count = 1;
-	    }
-	} else {
-	    cookie = oldcookie;
-	}
-    }
-
-    if (count <= 0) {
-	action.type = Delete;
-	do_file(&action);
-    } else {
-	snprintf(action.data, action.size, "%d %s%n", count, cookie ?: COOKIE_PLACEHOLDER, &action.size);
-    }
-
-    do_close(action);
-    _pam_log(LOG_DEBUG, "returning refcount %d", count);
-    return count;
-}
-
-PAM_EXTERN int
-pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
-{
-    int ret = PAM_SESSION_ERR;
-    int willret = 0;
-    char *key, *cookie_start = NULL, *cookie_end = NULL, *cookie;
-    int mask;
-
-    mask = umask(0077);
-
-    willret = _args_init(argc, argv, &ret, pamh);
-    if (willret == -1) { umask(mask); return ret; }
-
-    call_xauth(&key, SourceUser, reading,
-	       xauth, "-iq", "nextract", "-", display, NULL);
-
-    if (key[0]) {
-	cookie_end = strchr(key, '\n');
-	if (cookie_end) {
-	    cookie_end[0] = '\0';
-	} else {
-	    cookie_end = key + strlen(key);
-	}
-	cookie_start = strrchr(key, ' ');
-    }
-    if (cookie_start && cookie_end && (cookie_start < cookie_end)) {
-	/* copy cookie */
-	cookie = alloca(cookie_end - cookie_start);
-	cookie_start++; /* go past the space character */
-	if (!cookie) {
-	    _pam_log(LOG_ERR, "pam_sm_open_session: out of memory");
-	    willret = -3; ret = PAM_SESSION_ERR;
-	}
-	strncpy(cookie, cookie_start, cookie_end-cookie_start);
-	cookie[cookie_end-cookie_start] = '\0';
-
-	if (mangle_refcount(pamh, 1, cookie) < 0) {
-	    willret = -3; ret = PAM_SESSION_ERR;
-	}
-	if (willret >= 0) {
-	    call_xauth(&key, TargetUser, writing, xauth, "nmerge", "-", NULL);
-	    ret = PAM_SUCCESS;
-	}
-    }
-    if (key) free(key);
-    umask(mask);
-
-    return ret;
-}
-
-PAM_EXTERN int
-pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
-{
-    int ret = PAM_SESSION_ERR;
-    int refcount;
-    int willret = 0;
-    int mask;
-
-    mask = umask(0077);
-
-    willret = _args_init(argc, argv, &ret, pamh);
-    if (willret == -1) { umask(mask); return ret; }
-    refcount = mangle_refcount(pamh, -1, NULL);
-    if (refcount < 0) { umask(mask); return PAM_SESSION_ERR; }
-    if (willret < 0) { umask(mask); return ret; }
-
-    if (refcount == 0)
-	call_xauth(NULL, TargetUser, writing, xauth, "-q", "remove", display, NULL);
-    ret = PAM_SUCCESS;
-    umask(mask);
-
-    return ret;
-}
-
-
-#ifdef PAM_STATIC
-
-/* static module data */
-
-struct pam_module _pam_xauth_modstruct = {
-     "pam_xauth",
-     NULL,
-     NULL,
-     NULL,
-     pam_sm_open_session,
-     pam_sm_close_session,
-     NULL,
-};
-
-#endif
-
-/*
- * Copyright Red Hat, Inc. 1999.  All rights reserved.
+ * Copyright 2001 Red Hat, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -740,7 +20,7 @@ struct pam_module _pam_xauth_modstruct = {
  * necessary due to a potential bad interaction between the GPL and
  * the restrictions contained in a BSD-style copyright.)
  *
- * THIS SOFTWARE IS PROVIDED `AS IS'' AND ANY EXPRESS OR IMPLIED
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  * DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
@@ -752,3 +32,377 @@ struct pam_module _pam_xauth_modstruct = {
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <errno.h>
+#include <limits.h>
+#include <netdb.h>
+#include <pwd.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
+#include <unistd.h>
+
+#define PAM_SM_SESSION
+#include "../../libpam/include/security/pam_modules.h"
+
+#define PAM_GETPWNAM_R
+#define PAM_GETPWUID_R
+#include "../../libpam/include/security/_pam_macros.h"
+
+#define DATANAME "pam_xauth_cookie_file"
+#define XAUTHBIN "/usr/X11R6/bin/xauth"
+#define XAUTHENV "XAUTHORITY"
+#define HOMEENV  "HOME"
+#define XAUTHDEF ".Xauthority"
+#define XAUTHTMP ".xauthXXXXXX"
+
+/* Run a given command (with a NULL-terminated argument list), feeding it the
+ * given input on stdin, and storing any output it generates. */
+static int
+run_coprocess(const char *input, char **output,
+	      uid_t uid, gid_t gid, const char *command, ...)
+{
+	int ipipe[2], opipe[2], i;
+	char buf[LINE_MAX];
+	pid_t child;
+	char *buffer = NULL;
+	size_t buffer_size = 0;
+	va_list ap;
+
+	*output = NULL;
+
+	/* Create stdio pipery. */
+	if(pipe(ipipe) == -1) {
+		return -1;
+	}
+	if(pipe(opipe) == -1) {
+		close(ipipe[0]);
+		close(ipipe[1]);
+		return -1;
+	}
+
+	/* Fork off a child. */
+	child = fork();
+	if(child == -1) {
+		close(ipipe[0]);
+		close(ipipe[1]);
+		close(opipe[0]);
+		close(opipe[1]);
+		return -1;
+	}
+
+	if(child == 0) {
+		/* We're the child. */
+		char *args[10];
+		const char *tmp;
+		/* Drop privileges. */
+		setgid(gid);
+		setgroups(0, NULL);
+		setuid(uid);
+		/* Initialize the argument list. */
+		memset(&args, 0, sizeof(args));
+		/* Set the pipe descriptors up as stdin and stdout, and close
+		 * everything else, including the original values for the
+		 * descriptors. */
+		dup2(ipipe[0], STDIN_FILENO);
+		dup2(opipe[1], STDOUT_FILENO);
+		for(i = 0; i < sysconf(_SC_OPEN_MAX); i++) {
+			if((i != STDIN_FILENO) && (i != STDOUT_FILENO)) {
+				close(i);
+			}
+		}
+		/* Convert the varargs list into a regular array of strings. */
+		va_start(ap, command);
+		args[0] = strdup(command);
+		for(i = 1; i < ((sizeof(args) / sizeof(args[0])) - 1); i++) {
+			tmp = va_arg(ap, const char*);
+			if(tmp == NULL) {
+				break;
+			}
+			args[i] = strdup(tmp);
+		}
+		/* Run the command. */
+		execvp(command, args);
+		/* Never reached. */
+		exit(1);
+	}
+
+	/* We're the parent, so close the other ends of the pipes. */
+	close(ipipe[0]);
+	close(opipe[1]);
+	/* Send input to the process (if we have any), then send an EOF. */
+	if(input) {
+		write(ipipe[1], input, strlen(input));
+	}
+	close(ipipe[1]);
+
+	/* Read data output until we run out of stuff to read. */
+	i = read(opipe[0], buf, sizeof(buf));
+	while((i != 0) && (i != -1)) {
+		char *tmp;
+		/* Resize the buffer to hold the data. */
+		tmp = realloc(buffer, buffer_size + i + 1);
+		if(tmp == NULL) {
+			/* Uh-oh, bail. */
+			if(buffer != NULL) {
+				free(buffer);
+			}
+			close(opipe[0]);
+			waitpid(child, NULL, 0);
+			return -1;
+		}
+		/* Save the new buffer location, copy the newly-read data into
+		 * the buffer, and make sure the result will be
+		 * nul-terminated. */
+		buffer = tmp;
+		memcpy(buffer + buffer_size, buf, i);
+		buffer[buffer_size + i] = '\0';
+		buffer_size += i;
+		/* Try to read again. */
+		i = read(opipe[0], buf, sizeof(buf));
+	}
+	/* No more data.  Clean up and return data. */
+	close(opipe[0]);
+	*output = buffer;
+	waitpid(child, NULL, 0);
+	return 0;
+}
+
+/* Free a data item. */
+static void
+cleanup(pam_handle_t *pamh, void *data, int err)
+{
+	free(data);
+}
+
+int
+pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
+{
+	char xauthpath[] = XAUTHBIN;
+	char *cookiefile = NULL, *xauthority = NULL,
+	     *cookie = NULL, *display = NULL, *thome = NULL, *tmp;
+	const char *user, *xauth = xauthpath;
+	struct passwd passwd, *pwd;
+	size_t buflen;
+	int fd, i, debug = 0;
+	uid_t systemuser = 499;
+
+	/* Parse arguments.  We don't understand many, so no sense in breaking
+	 * this into a separate function. */
+	for(i = 0; i < argc; i++) {
+		if(strcmp(argv[i], "debug") == 0) {
+			debug = 1;
+			continue;
+		}
+		if(strncmp(argv[i], "xauthpath=", 10) == 0) {
+			xauth = argv[i] + 10;
+			continue;
+		}
+		if(strncmp(argv[i], "systemuser=", 11) == 0) {
+			long l = strtol(argv[i] + 11, &tmp, 10);
+			if((strlen(argv[i] + 11) > 0) && (*tmp == '\0')) {
+				systemuser = l;
+			} else {
+				syslog(LOG_WARNING, "pam_xauth: invalid value "
+				       "for systemuser (`%s')", argv[i] + 11);
+			}
+			continue;
+		}
+		syslog(LOG_WARNING, "pam_xauth: unrecognized option `%s'",
+		       argv[i]);
+	}
+
+	/* If DISPLAY isn't set, we don't really care, now do we? */
+	if((display = getenv("DISPLAY")) == NULL) {
+		if(debug) {
+			syslog(LOG_DEBUG, "pam_xauth: user has no DISPLAY");
+		}
+		return PAM_IGNORE;
+	}
+
+	/* Read the target user's name. */
+	if(pam_get_item(pamh, PAM_USER, (const void**)&user) != PAM_SUCCESS) {
+		syslog(LOG_ERR, "pam_xauth: error determining target "
+		       "user's name");
+		return PAM_IGNORE;
+	}
+
+	/* Get the target user's UID and primary GID, which we'll need to set
+	 * on the xauthority file we create later on. */
+	if(_pam_getpwnam_r(user, &passwd, &tmp, &buflen, &pwd) != 0) {
+		syslog(LOG_ERR, "pam_xauth: error determining target "
+		       "user's UID");
+		return PAM_IGNORE;
+	}
+
+	/* We only care about the target user's IDs, so we can free the
+	 * string data after making a copy of the user's home directory. */
+	thome = strdup(passwd.pw_dir);
+	if(tmp) {
+		free(tmp);
+	}
+
+	/* If the UID is a system account (and not the superuser), forget
+	 * about forwarding keys. */
+	if((passwd.pw_uid != 0) && (passwd.pw_uid <= systemuser)) {
+		free(thome);
+		return PAM_IGNORE;
+	}
+
+	/* Figure out where the source user's .Xauthority file is. */
+	if(getenv(XAUTHENV) != NULL) {
+		cookiefile = strdup(getenv(XAUTHENV));
+	} else {
+		char *t, *homedir = NULL;
+		size_t t_len;
+		struct passwd tpasswd, *tpwd;
+		if(_pam_getpwuid_r(getuid(), &tpasswd, &t, &t_len,
+				   &tpwd) == 0) {
+			homedir = strdup(tpasswd.pw_dir);
+			free(t);
+		} else {
+			free(thome);
+			return PAM_IGNORE;
+		}
+		cookiefile = malloc(strlen(homedir) + 1 + strlen(XAUTHDEF) + 1);
+		if(cookiefile == NULL) {
+			free(t);
+			free(thome);
+			return PAM_IGNORE;
+		}
+		strcpy(cookiefile, homedir);
+		strcat(cookiefile, "/");
+		strcat(cookiefile, XAUTHDEF);
+		free(homedir);
+	}
+	if(debug) {
+		syslog(LOG_DEBUG, "pam_xauth: reading keys from `%s'",
+		       cookiefile);
+	}
+
+	/* Read the user's .Xauthority file.  Because the current UID is
+	 * the original user's UID, this will only fail if something has
+	 * gone wrong, or we have no cookies. */
+	if(run_coprocess(NULL, &cookie,
+			 getuid(), getgid(),
+			 xauth, "-f", cookiefile, "nlist", display, NULL) == 0) {
+		/* Check that we got a cookie. */
+		if((cookie == NULL) || (strlen(cookie) == 0)) {
+			if(debug) {
+				syslog(LOG_DEBUG, "pam_xauth: no key");
+			}
+			return PAM_IGNORE;
+		}
+
+		/* Generate the environment variable "XAUTHORITY=filename". */
+		xauthority = malloc(strlen(XAUTHENV) + strlen(thome) +
+				    strlen(XAUTHTMP) + 3);
+		if(xauthority == NULL) {
+			if(debug) {
+				syslog(LOG_DEBUG, "pam_xauth: no free memory");
+			}
+			return PAM_IGNORE;
+		}
+		strcpy(xauthority, XAUTHENV);
+		strcat(xauthority, "=");
+		strcat(xauthority, thome);
+		strcat(xauthority, "/");
+		strcat(xauthority, XAUTHTMP);
+
+		/* Generate a new file to hold the data. */
+		fd = mkstemp(xauthority + strlen(XAUTHENV) + 1);
+		if(fd == -1) {
+			syslog(LOG_ERR, "pam_xauth: error creating "
+			       "temporary file `%s': %s",
+			       xauthority + strlen(XAUTHENV) + 1,
+			       strerror(errno));
+			free(xauthority);
+			return PAM_IGNORE;
+		}
+		/* Set permissions on the new file and dispose of the
+		 * descriptor. */
+		fchown(fd, passwd.pw_uid, passwd.pw_gid);
+		close(fd);
+
+		/* Get a copy of the filename to save as a data item for
+		 * removal at session-close time. */
+		free(cookiefile);
+		cookiefile = strdup(xauthority + strlen(XAUTHENV) + 1);
+
+		/* Save the filename. */
+		if(pam_set_data(pamh, DATANAME, cookiefile, cleanup) != PAM_SUCCESS) {
+			syslog(LOG_ERR, "pam_xauth: error saving name of "
+			       "temporary file `%s'", cookiefile);
+			unlink(cookiefile);
+			free(cookiefile);
+			free(xauthority);
+			free(cookie);
+			return PAM_IGNORE;
+		}
+
+		/* Unset any old XAUTHORITY variable in the environment. */
+		if(getenv(XAUTHENV)) {
+			unsetenv(XAUTHENV);
+		}
+
+		/* Set the new variable in the environment. */
+		pam_putenv(pamh, xauthority);
+		putenv(xauthority);
+
+		/* Merge the cookie we read before into the new file. */
+		if(debug) {
+			syslog(LOG_DEBUG, "pam_xauth: writing key `%s' to "
+			       "temporary file `%s'", cookie, cookiefile);
+		}
+		run_coprocess(cookie, &tmp,
+			      passwd.pw_uid, passwd.pw_gid,
+			      xauth, "-f", cookiefile, "nmerge", "-", NULL);
+
+		/* We don't need to keep a copy of this around any more. */
+		free(cookie);
+	}
+	return PAM_IGNORE;
+}
+
+int
+pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
+{
+	void *cookiefile;
+	int i, debug = 0;
+
+	/* Parse arguments.  We don't understand many, so no sense in breaking
+	 * this into a separate function. */
+	for(i = 0; i < argc; i++) {
+		if(strcmp(argv[i], "debug") == 0) {
+			debug = 1;
+			continue;
+		}
+		if(strncmp(argv[i], "xauthpath=", 10) == 0) {
+			continue;
+		}
+		if(strncmp(argv[i], "systemuser=", 11) == 0) {
+			continue;
+		}
+		syslog(LOG_WARNING, "pam_xauth: unrecognized option `%s'",
+		       argv[i]);
+	}
+
+	/* Try to retrieve the name of a file we created when the session was
+	 * opened. */
+	if(pam_get_data(pamh, DATANAME, (const void**) &cookiefile) == PAM_SUCCESS) {
+		/* We'll only try to remove the file once. */
+		if(strlen((char*)cookiefile) > 0) {
+			if(debug) {
+				syslog(LOG_DEBUG, "pam_xauth: removing `%s'",
+				       (char*)cookiefile);
+			}
+			unlink((char*)cookiefile);
+			*((char*)cookiefile) = '\0';
+		}
+	}
+	return PAM_IGNORE;
+}

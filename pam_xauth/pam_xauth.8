@@ -1,6 +1,7 @@
-.\" Copyright 1999 Red Hat, Inc.
-.\" Written by Michael K. Johnson <johnsonm@redhat.com>
-.TH pam_xauth 8 1999/4/10 "Red Hat" "System Administrator's Manual"
+.\" Copyright 2001 Red Hat, Inc.
+.\" Written by Nalin Dahyabhai <nalin@redhat.com>, based on the original
+.\" version by Michael K. Johnson
+.TH pam_xauth 8 2001/9/27 "Red Hat Linux" "System Administrator's Manual"
 .SH NAME
 pam_xauth \- forward xauth keys between users
 .SH SYNOPSIS
@@ -9,11 +10,10 @@ pam_xauth \- forward xauth keys between users
 pam_xauth.so is designed to forward xauth keys (sometimes referred
 to as "cookies") between users.
 
-Without pam_xauth,
-when xauth is enabled and a user uses the \fBsu\fP command to assume
-superuser priviledges, that user is not able to run X commands as root
-without somehow giving root access to the xauth key used for the
-current X session.  pam_xauth solves the problem by forwarding the
+Without pam_xauth, when xauth is enabled and a user uses the \fBsu\fP command
+to assume another user's priviledges, that user is no longer able to access
+the original user's X display because the new user does not have the key
+needed to access the display.  pam_xauth solves the problem by forwarding the
 key from the user running su (the source user) to the user whose
 identity the source user is assuming (the target user) when the session
 is created, and destroying the key when the session is torn down.
@@ -22,129 +22,35 @@ This means, for example, that when you run \fBsu\fP from an xterm sesssion,
 you will be able to run X programs without explicitly dealing with the
 xauth command or ~/.Xauthority files.
 
-By default, pam_xauth will only forward keys when the root user is
-the target user.  Source users can add the names of other users that
-they trust as target users in the file ~/.xauth/export; once they have
-done so, even root is not trusted unless it is listed in ~/.xauth/export.
-The special username \fB*\fP matches every user, but neither globbing
-nor regexp matching is done.  If ~/.xauth/export is an empty file,
-pam_xauth will never forward any of the user's xauth keys anywhere.
-
-Similarly, pam_xauth looks at the target user's ~/.xauth/import file
-if the target user wants to accept xauth keys from the source user.
-Users who do not wish to have their ~/.Xauthority files mangled when
-they are target users can create the empty file ~/.xauth/import and
-pam_xauth will do nothing to them\(emneither import keys into them
-nor remove keys from them.
-
 pam_xauth will only forward keys if xauth can list a key connected
 to the $DISPLAY environment variable.
 
-If a source user opens multiple sessions from a single display to a
-single target user, the xauth key exported to the target will not
-be destroyed in the target's xauth database until the source user
-closes the last session.  The reference counts are kept in the file
-~/.xauth/refcount/\fItargetname\fP/\fIkeyname\fP along with the
-keys.  If the key for a display changes, the reference count will
-drop to zero.
-.SH EXAMPLES
-While pam_xauth will create the .xauth directory the first time it is
-run, if you want to set it up before it has ever run, you can do it
-yourself like so:
-.br
-\f(CW$ mkdir ~/.xauth
-.br
-$ chmod 700 ~/.xauth\fR
-.br
-The rest of these examples assume that the ~/.xauth directory exists.
-
-A user does not want to export any xauth keys, even to the
-root account:
-.br
-\f(CW$ touch ~/.xauth/export\fR
-.br
-
-A system administrator often needs to su to his/her own account while
-working from other people's accounts to fix their problems.  He/she
-does not want his/her xauth database polluted with extra keys:
-.br
-\f(CW$ touch ~/.xauth/import\fR
-.br
-
-A user often helps his/her friends with their accounts and wants X to
-work when he has used su to assume their accounts, no matter who the
-user is:
-.br
-\f(CW$ echo '*' > ~/.xauth/export\fR
-
-Frank trusts Bill and the root user, but no one else, with his xauth
-keys:
-.br
-\f(CW$ echo 'root
-.br
-bill' > ~/.xauth/export\fR
 .SH ARGUMENTS
 .IP debug
-Turns on debugging messages sent to syslog.  Most debugging messages are
-sent as AUTHPRIV messages, which means that on most systems they will
-show up in /var/log/secure.
-.IP logpub
-Makes none of the syslogged messages be sent AUTHPRIV.  This is dangerous
-on a multi-user system but can make debugging much simpler because all
-the logging is in one place.  Normally only used with the \fBdebug\fP
-argument.
-.IP warndays=\fIdays\fP
-Obsolete, ignored.
-.IP warnhours=\fIhours\fP
-Obsolete, ignored.
-.IP systemuser=\fInumericuserid\fP
-Treat all users with ids less than or equal to \fInumericuserid\fP but
-greater than 0 (that is; excepting the root user) as
-system users, and do not forward keys to them or from them.  Set
-systemuser=0 to disable this checking entirely.  The default is
-499.
+Turns on debugging messages sent to syslog.
 .IP xauthpath=\fI/usr/X11R6/bin/xauth\fP
 Specify the path the xauth program (the default is /usr/X11R6/bin/xauth).
 .SH "IMPLEMENTATION DETAILS"
 pam_xauth will work \fIonly\fP if it is used from a setuid application
 in which the getuid() call returns the id of the user running the
-application (alternatively, it will work if the getlogin() call works,
-but that is out of control of many of the target applications, like su),
-and for which PAM can supply the name of the account that
+application, and for which PAM can supply the name of the account that
 the user is attempting to assume.  The typical application of this
 type is su.  The application must call both pam_open_session() and
-pam_close_session() with the ruid set to the id of the calling user
+pam_close_session() with the ruid set to the uid of the calling user
 and the euid set to root, and must have provided as the PAM_USER item
 the name of the target user.
 
-pam_xauth calls xauth as the source user to find the canonical key
-name and extract the key for
+pam_xauth calls xauth as the source user to extract the key for
 $DISPLAY, then calls xauth as the target user to merge the key
-into the target user's database and later remove the key.
+into the a temporary database and later remove the database.
 
 pam_xauth cannot be told not to remove the keys when the session
-is closed.  If, for example, you wish for the root account to
-collect all possible keys and never remove them from the database,
-you should disable pam_xauth key import by creating an empty
-~root/.xauth/import file, then set up root's .profile (or whatever)
-to do something like this:
-.nf
-\f(CWif [ -n "$DISPLAY" -a -n "$LOGNAME" -a "$LOGNAME" != root ]
-then
-    su -c $LOGNAME xauth -iq nextract - "$DISPLAY" | \e
-        xauth nmerge -
-fi\fR
-.fi
-.SH FILES
-~/.xauth/export
-.br
-~/.xauth/import
-.br
-~/.xauth/refcount/ and all file and subdirectories contained therein
+is closed.
 .SH "SEE ALSO"
-\fI/usr/doc/pam*/html/index.html\fP
+\fI/usr/share/doc/pam*/html/index.html\fP
 .SH BUGS
 Let's hope not, but if you find any, please report them via the "Bug Track"
-link at http://developer.redhat.com/
+link at http://bugzilla.redhat.com/bugzilla/
 .SH AUTHOR
+Nalin Dahyabhai <nalin@redhat.com>, based on original version by
 Michael K. Johnson <johnsonm@redhat.com>
