@@ -4,14 +4,14 @@
 # what you are doing!).
 #
 
-TITLE=pam_localuser
+TITLE=pam_xauth
 
 LIBSRC = $(TITLE).c
 LIBOBJ = $(TITLE).o
 LIBOBJD = $(addprefix dynamic/,$(LIBOBJ))
 #LIBOBJS = $(addprefix static/,$(LIBOBJ))
 MANMODE = 644
-MAN8 = pam_localuser.8
+MAN8 = pam_xauth.8
 MAN8DIR = $(MANDIR)/man8
 
 dynamic/%.o : %.c
