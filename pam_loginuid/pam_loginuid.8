@@ -15,8 +15,6 @@ necessary for applications to be correctly audited.
 .SH EXAMPLE
 \fB/etc/pam.d/gdm\fP:
 .br
-auth       required     pam_loginuid.so
-.br
 auth       required     pam_stack.so service=system-auth
 .br
 auth       required     pam_nologin.so
