@@ -1,19 +1,26 @@
 .\" Copyright 2001 Red Hat, Inc.
-.TH pam_console_apply 8 2005/3/18 "Red Hat" "System Administrator's Manual"
+.TH pam_console_apply 8 2005/5/2 "Red Hat" "System Administrator's Manual"
 .SH NAME
 pam_console_apply \- set or revoke permissions for users at the system console
 .SH SYNOPSIS
 .B pam_console_apply 
 [-f <fstab file>] [-c <console.perms file>] [-r] [-t <tty>] [-s] [-d] [<device file> ...]
 .SH DESCRIPTION
-\fBpam_console_apply\fP sets or resets permissions on devices in the same
-manner as pam_console.
+\fBpam_console_apply\fP is a helper executable which sets or resets permissions
+on device nodes.
 .br
 If \fI/var/run/console.lock\fP exists, \fBpam_console_apply\fP will grant
 permissions to the user listed therein.  If the lock file does not exist,
-permissions are reset to those listed in \fI/etc/security/console.perms\fP,
-which should be configured to set permissions on devices so that \fBroot\fP
+permissions are reset according to defaults set in \fIconsole.perms\fP files,
+normally configured to set permissions on devices so that \fBroot\fP
 owns them.
+
+When initializing its configuration it first parses
+the \fI/etc/security/console.perms\fP file and then it searches for files
+ending with the \fI.perms\fP suffix in the \fI/etc/security/console.perms.d\fP
+directory. These files are parsed in the lexical order in "C" locale.
+Permission rules are appended to a global list, console and device class
+definitions override previous definitions of the same class.
 .SH ARGUMENTS
 .IP -c
 Load other console.perms file than the default one.
@@ -37,6 +44,8 @@ changed on all files specified in the \fIconsole.perms\fP file.
 \fI/var/run/console.lock\fP
 .br
 \fI/etc/security/console.perms\fP
+.br
+\fI/etc/security/console.perms.d/50-default.perms\fP
 .SH "SEE ALSO"
 .BR pam_console(8)
 .br
@@ -45,6 +54,9 @@ changed on all files specified in the \fIconsole.perms\fP file.
 .SH BUGS
 Let's hope not, but if you find any, please report them via the "Bug Track"
 link at http://bugzilla.redhat.com/bugzilla/
-.SH AUTHOR
+.SH AUTHORS
 Nalin Dahyabhai <nalin@redhat.com>, using code shamelessly stolen from parts of
 pam_console.
+.br
+Support of console.perms.d and other improvements by
+Tomas Mraz <tmraz@redhat.com>.

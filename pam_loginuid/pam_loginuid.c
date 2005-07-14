@@ -29,6 +29,7 @@
 #include <pwd.h>
 #include <unistd.h>
 #include <limits.h>
+#include <errno.h>
 
 #include <security/pam_modules.h>
 #include <security/_pam_modutil.h>
@@ -56,16 +57,18 @@ static void _pam_log(int err, const char *format, ...)
 static int set_loginuid(uid_t uid)
 {
 	int fd, count, rc = 0;
-	char fn[PATH_MAX];
 	char loginuid[16];
 
-	memset(loginuid, 0, sizeof(loginuid));
 	count = snprintf(loginuid, sizeof(loginuid), "%d", uid);
-	snprintf(fn, sizeof(fn), "/proc/%d/loginuid", getpid());
-	fd = open(fn, O_NOFOLLOW|O_WRONLY|O_TRUNC);
+	fd = open("/proc/self/loginuid", O_NOFOLLOW|O_WRONLY|O_TRUNC);
 	if (fd < 0) {
-		_pam_log(LOG_ERR, "set_loginuid failed opening loginuid\n");
-		return 1;
+		int loglevel = LOG_DEBUG;
+		if (errno != ENOENT) {
+			rc = 1;
+			loglevel = LOG_ERR;
+		}
+		_pam_log(loglevel, "set_loginuid failed opening loginuid\n");
+		return rc;
 	}
 	if (_pammodutil_write(fd, loginuid, count) != count) 
 		rc = 1;

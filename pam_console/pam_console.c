@@ -53,9 +53,9 @@
  */
 #define CAST_ME_HARDER (const void**)
 
-static char consolelock[PATH_MAX] = LOCKDIR "/console.lock";
-static char consolerefs[PATH_MAX] = LOCKDIR "/";
-static char consoleapps[PATH_MAX] = "/etc/security/console.apps/";
+static char consolelock[] = LOCKDIR "/" LOCKFILE;
+static char consolerefs[] = LOCKDIR "/";
+static char consoleapps[] = "/etc/security/console.apps/";
 static char consolehandlers[PATH_MAX] = "/etc/security/console.handlers";
 static int configfileparsed = 0;
 static int debug = 0;
@@ -98,7 +98,11 @@ _args_parse(int argc, const char **argv)
 	else if (!strcmp(*argv,"allow_nonroot_tty"))
 	    allow_nonroot_tty = 1;
 	else if (!strncmp(*argv,"handlersfile=",13))
-	    strcpy(consolehandlers,*argv+13);
+	    if (strlen(*argv+13) < PATH_MAX)
+		strcpy(consolehandlers,*argv+13);
+	    else
+		_pam_log(LOG_ERR, FALSE,
+			"_args_parse: handlersfile filename too long");
 	else {
 	    _pam_log(LOG_ERR, FALSE,
 		     "_args_parse: unknown option; %s",*argv);
@@ -606,6 +610,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	    if (fstat (fd, &st)) {
 		_pam_log(LOG_ERR, FALSE,
 			"\"impossible\" fstat error on %s", consolelock);
+		close(fd);
 		err = PAM_SESSION_ERR; goto return_error;
 	    }
 	    consoleuser = _do_malloc(st.st_size+1);

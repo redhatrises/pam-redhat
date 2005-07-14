@@ -21,7 +21,8 @@ the console.  It also cooperates with the pam_listfile module to
 make it possible to allow users who are at the console to run
 various programs that would otherwise be restricted to root only.
 
-The pam_console.8 man page explains this software in more detail.
+The pam_console.8 and pam_console_apply.8 man pages explain this
+software in more detail.
 
 Please note: the current version depends on too many external tools
 and libraries, making it big and hard to evaluate for security.

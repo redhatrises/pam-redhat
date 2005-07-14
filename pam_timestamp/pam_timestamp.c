@@ -499,6 +499,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		/* Check oldest login against timestamp */
 		if (get_ruser(pamh, ruser, sizeof(ruser)))
 		{
+			close(fd);
 			return PAM_AUTH_ERR;
 		}
 		if (check_login_time(ruser, then) != PAM_SUCCESS)
@@ -507,6 +508,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			       "older than oldest login, disallowing "
 			       "access to %s for user %s",
 			       path, service, ruser);
+			close(fd);
 			return PAM_AUTH_ERR;
 		}
 

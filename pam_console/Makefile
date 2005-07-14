@@ -25,6 +25,8 @@ LOCAL_CONF1 = console.perms
 INSTALLED_CONF1 = $(SCONFIGD)/console.perms
 LOCAL_CONF2 = console.handlers
 INSTALLED_CONF2 = $(SCONFIGD)/console.handlers
+LOCAL_CONF3 = 50-default.perms
+INSTALLED_CONF3 = $(SCONFIGD)/console.perms.d/50-default.perms
 MAN5 = console.apps.5 console.perms.5 console.handlers.5
 MAN8 = pam_console.8 pam_console_apply.8
 
@@ -114,9 +116,11 @@ ifdef MAN8
 	test -d $(FAKEROOT)$(MANDIR)/man8 || $(MKDIR) $(FAKEROOT)$(MANDIR)/man8
 	$(INSTALL) -m $(MANMODE) $(MAN8) $(FAKEROOT)$(MANDIR)/man8/
 endif
-	if $(MKDIR) -m $(LOCKMODE) $(FAKEROOT)$(LOCKDIR) $(FAKEROOT)/$(SCONFIGD)/console.apps ; then \
+	if $(MKDIR) -m $(LOCKMODE) $(FAKEROOT)$(LOCKDIR) \
+		$(FAKEROOT)/$(SCONFIGD)/console.apps $(FAKEROOT)/$(SCONFIGD)/console.perms.d; then \
 	    bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONF1)" "$(TITLE)" "$(LOCAL_CONF1)" ;\
 	    bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)" "$(INSTALLED_CONF2)" "$(TITLE)" "$(LOCAL_CONF2)" ;\
+	    bash -f ../install_conf "$(FAKEROOT)" "$(SCONFIGD)/console.perms.d" "$(INSTALLED_CONF3)" "$(TITLE)" "$(LOCAL_CONF3)" ;\
 	fi
 	test -d  $(FAKEROOT)$(SUPLEMENTED) || install -m 755 -d $(FAKEROOT)$(SUPLEMENTED)
 	install -m 555 $(BINARY) $(FAKEROOT)$(SUPLEMENTED)

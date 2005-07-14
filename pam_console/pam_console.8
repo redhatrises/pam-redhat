@@ -1,6 +1,6 @@
 .\" Copyright 1999 Red Hat Software, Inc.
 .\" Written by Michael K. Johnson <johnsonm@redhat.com>
-.TH pam_console 8 2005/3/18 "Red Hat" "System Administrator's Manual"
+.TH pam_console 8 2005/5/2 "Red Hat" "System Administrator's Manual"
 .SH NAME
 pam_console \- determine user owning the system console
 .SH SYNOPSIS
@@ -79,8 +79,6 @@ session optional pam_console.so
 .br
 \fI/etc/security/console.apps\fP
 .br
-\fI/etc/security/console.perms\fP
-.br
 \fI/etc/security/console.handlers\fP
 .SH SECURITY NOTES
 When pam_console "auth" is used for login services which provide
@@ -100,5 +98,8 @@ Currently, /bin/login (invoked from telnetd) and gdm is OK, others may be not.
 .SH BUGS
 Let's hope not, but if you find any, please report them via the "Bug Track"
 link at http://bugzilla.redhat.com/bugzilla/
-.SH AUTHOR
+.SH AUTHORS
 Michael K. Johnson <johnsonm@redhat.com>
+.br
+Support of console.handlers and other improvements by
+Tomas Mraz <tmraz@redhat.com>

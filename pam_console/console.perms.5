@@ -1,13 +1,14 @@
-.\" Copyright 1999 Red Hat Software, Inc.
+.\" Copyright 1999,2005 Red Hat Software, Inc.
 .\" Written by Michael K. Johnson <johnsonm@redhat.com>
-.TH console.perms 5 1999/2/3 "Red Hat Software" "System Administrator's Manual"
+.TH console.perms 5 2005/5/2 "Red Hat Software" "System Administrator's Manual"
 .SH NAME
 console.perms \- permissions control file for users at the system console
 .SH DESCRIPTION
-/etc/security/console.perms determines the permissions that will be
+/etc/security/console.perms and .perms files in the 
+/etc/security/console.perms.d directory determine the permissions that will be
 given to priviledged users of the console at login time, and the
-permissions to which to revert when the users log out.  It is
-read by the pam_console module.
+permissions to which to revert when the users log out.  They are
+read by the pam_console_apply helper executable.
 
 The format is:
 

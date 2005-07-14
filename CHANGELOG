@@ -4,6 +4,11 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.80-1: Thu Jul 14 2005
+
+* pam_console: support perms.d directory with permissions files
+* pam_loginuid: test for non existing loginuid file (module shouldn't fail)
+
 0.79-1: Thu Mar 31 2005
 
 * pam_console: Modify dri permissions for open source dri drivers

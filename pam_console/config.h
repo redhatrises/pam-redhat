@@ -23,7 +23,7 @@ struct config_s {
 };
 
 STATIC void
-parse_file(char *name);
+parse_file(const char *name);
 
 STATIC int
 check_console_name (const char *consolename);

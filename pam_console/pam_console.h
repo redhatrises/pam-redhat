@@ -6,7 +6,7 @@
 #define _PAM_CONSOLE_H
 #include <security/pam_modules.h>
 
-/* pam_console.c */
+#define LOCKFILE "console.lock"
 
 static void
 _pam_log(int err, int debug_p, const char *format, ...);

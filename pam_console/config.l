@@ -12,7 +12,7 @@
 #include <glib.h>
 
 static int lineno;
-static char *filename;
+static const char *filename;
 
 STATIC char *
 strip_slash(const char *);
@@ -37,7 +37,7 @@ lex_file (FILE *in) {
 }
 
 static void
-lex_set_filename(char *name) {
+lex_set_filename(const char *name) {
   filename = name;
 }
 

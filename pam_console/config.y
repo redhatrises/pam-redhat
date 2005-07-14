@@ -28,7 +28,7 @@ static void
 do_yyerror(const char *format, ...);
 
 static void
-free_class(class *c);
+empty_class(class *c);
 
 %}
 
@@ -51,16 +51,17 @@ line:		config
 
 classdef:
 		OBRACKET string CBEQUALS stringlist EOL {
-		  void *old;
 		  class *c;
 
-		  old = g_hash_table_lookup(namespace, $2);
-		  if (old) free_class(old);
-
-		  c = g_malloc(sizeof(class));
+		  c = g_hash_table_lookup(namespace, $2);
+		  if (c) { 
+			empty_class(c);
+		  } else {
+			c = g_malloc(sizeof(class));
+			g_hash_table_insert(namespace, g_strdup($2), c);
+		  }
 		  c->name = $2;
 		  c->list = $4;
-		  g_hash_table_insert(namespace, $2, c);
 		}
 	;
 
@@ -98,7 +99,7 @@ config:		classlist STRING classlist optstring optstring EOL {
 classlist:	OBRACKET string CBRACKET {
 		  class *c = g_hash_table_lookup(namespace, $2);
 		  if(!c) {
-		    g_log(G_LOG_DOMAIN, G_LOG_LEVEL_CRITICAL,
+		    _pam_log(LOG_ERR, FALSE,
 			  "unknown class \"%s\" at line %d in %s\n",
 			  (const char *)$2, lineno, filename);
 		    _exit(1);
@@ -130,7 +131,7 @@ string:		STRING {$$=$1;} ;
 
 /* parse a file given by a name */
 STATIC void
-parse_file(char *name) {
+parse_file(const char *name) {
   FILE *infile;
 
   _pam_log(LOG_DEBUG, TRUE, "parsing config file %s", name);
@@ -289,7 +290,9 @@ do_yyerror(const char *format, ...) {
 }
 
 static void
-free_class(class *c) {
-  if (c->name) free (c->name);
-  if (c) free (c);
+empty_class(class *c) {
+  g_free(c->name);
+  c->name = NULL;
+  g_slist_free(c->list);
+  c->list = NULL;
 }
