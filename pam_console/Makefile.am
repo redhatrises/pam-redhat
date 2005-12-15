@@ -69,3 +69,4 @@ configfile.c: configfile.tab.c configfile.lex.c
 
 install-data-local:
 	mkdir -p $(DESTDIR)$(secureconfdir)/console.apps
+	mkdir -m $(LOCKMODE) -p -p $(DESTDIR)$(LOCKDIR)
