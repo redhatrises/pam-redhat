@@ -5,7 +5,7 @@
 
 CLEANFILES = *~
 
-man_MANS = pam_stack.8
+man_MANS = pam_loginuid.8
 EXTRA_DIST = README $(man_MANS)
 
 securelibdir = $(SECUREDIR)
@@ -18,4 +18,4 @@ if HAVE_VERSIONING
   AM_LDFLAGS += -Wl,--version-script=$(srcdir)/../modules.map
 endif
 
-securelib_LTLIBRARIES = pam_stack.la
+securelib_LTLIBRARIES = pam_loginuid.la

@@ -41,7 +41,7 @@
 #define PAM_SM_AUTH
 #define PAM_SM_SESSION
 
-#include "../../_pam_aconf.h"
+#include "config.h"
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -56,12 +56,13 @@
 #include <time.h>
 #include <unistd.h>
 #include <utmp.h>
+#include <syslog.h>
 #include "hmacsha1.h"
 
-#include "../../_pam_aconf.h"
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
-#include <security/_pam_modutil.h>
+#include <security/pam_ext.h>
+#include <security/pam_modutil.h>
 
 /* The default timeout we use is 5 minutes, which matches the sudo default
  * for the timestamp_timeout parameter. */
@@ -80,7 +81,7 @@
 
 /* Return PAM_SUCCESS if the given directory looks "safe". */
 static int
-check_dir_perms(const char *tdir)
+check_dir_perms(pam_handle_t *pamh, const char *tdir)
 {
 	char scratch[BUFLEN];
 	struct stat st;
@@ -97,38 +98,38 @@ check_dir_perms(const char *tdir)
 			/* We now have the name of a directory in the path, so
 			 * we need to check it. */
 			if ((lstat(scratch, &st) == -1) && (errno != ENOENT)) {
-				syslog(LOG_ERR,
-				       MODULE ": unable to read `%s'",
+				pam_syslog(pamh, LOG_ERR,
+				       "unable to read `%s': %m",
 				       scratch);
 				return PAM_AUTH_ERR;
 			}
 			if (!S_ISDIR(st.st_mode)) {
-				syslog(LOG_ERR,
-				       MODULE ": `%s' is not a directory",
+				pam_syslog(pamh, LOG_ERR,
+				       "`%s' is not a directory",
 				       scratch);
 				return PAM_AUTH_ERR;
 			}
 			if (S_ISLNK(st.st_mode)) {
-				syslog(LOG_ERR,
-				       MODULE ": `%s' is a symbolic link",
+				pam_syslog(pamh, LOG_ERR,
+				       "`%s' is a symbolic link",
 				       scratch);
 				return PAM_AUTH_ERR;
 			}
 			if (st.st_uid != 0) {
-				syslog(LOG_ERR,
-				       MODULE ": `%s' owner UID != 0",
+				pam_syslog(pamh, LOG_ERR,
+				       "`%s' owner UID != 0",
 				       scratch);
 				return PAM_AUTH_ERR;
 			}
 			if (st.st_gid != 0) {
-				syslog(LOG_ERR,
-				       MODULE ": `%s' owner GID != 0",
+				pam_syslog(pamh, LOG_ERR,
+				       "`%s' owner GID != 0",
 				       scratch);
 				return PAM_AUTH_ERR;
 			}
 			if ((st.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
-				syslog(LOG_ERR,
-				       MODULE ": `%s' permissions are lax",
+				pam_syslog(pamh, LOG_ERR,
+				       "`%s' permissions are lax",
 				       scratch);
 				return PAM_AUTH_ERR;
 			}
@@ -231,7 +232,7 @@ get_ruser(pam_handle_t *pamh, char *ruserbuf, int ruserbuflen)
 	}
 	if ((ruser == NULL) || (strlen(ruser) == 0)) {
 		/* Barring that, use the current RUID. */
-		pwd = _pammodutil_getpwuid(pamh, getuid());
+		pwd = pam_modutil_getpwuid(pamh, getuid());
 		if (pwd != NULL) {
 			ruser = pwd->pw_name;
 		}
@@ -265,13 +266,13 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		if (strncmp(argv[i], "timestampdir=", 13) == 0) {
 			tdir = argv[i] + 13;
 			if (debug) {
-				syslog(LOG_DEBUG,
-				       MODULE ": storing timestamps in `%s'",
+				pam_syslog(pamh, LOG_DEBUG,
+				       "storing timestamps in `%s'",
 				       tdir);
 			}
 		}
 	}
-	i = check_dir_perms(tdir);
+	i = check_dir_perms(pamh, tdir);
 	if (i != PAM_SUCCESS) {
 		return i;
 	}
@@ -286,14 +287,14 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		return PAM_AUTH_ERR;
 	}
 	if (debug) {
-		syslog(LOG_DEBUG, MODULE ": becoming user `%s'", user);
+		pam_syslog(pamh, LOG_DEBUG, "becoming user `%s'", user);
 	}
 	/* Get the name of the source user. */
 	if (get_ruser(pamh, ruser, sizeof(ruser)) || strlen(ruser) == 0) {
 		return PAM_AUTH_ERR;
 	}
 	if (debug) {
-		syslog(LOG_DEBUG, MODULE ": currently user `%s'", ruser);
+		pam_syslog(pamh, LOG_DEBUG, "currently user `%s'", ruser);
 	}
 	/* Get the name of the terminal. */
 	if (pam_get_item(pamh, PAM_TTY, (const void**)&tty) != PAM_SUCCESS) {
@@ -313,7 +314,7 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		}
 	}
 	if (debug) {
-		syslog(LOG_DEBUG, MODULE ": tty is `%s'", tty);
+		pam_syslog(pamh, LOG_DEBUG, "tty is `%s'", tty);
 	}
 	/* Snip off all but the last part of the tty name. */
 	tty = check_tty(tty);
@@ -326,7 +327,7 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 		return PAM_AUTH_ERR;
 	}
 	if (debug) {
-		syslog(LOG_DEBUG, MODULE ": using timestamp file `%s'", path);
+		pam_syslog(pamh, LOG_DEBUG, "using timestamp file `%s'", path);
 	}
 	return PAM_SUCCESS;
 }
@@ -348,13 +349,13 @@ verbose_success(pam_handle_t *pamh, int debug, int diff)
 				 "Access granted (last access was %d "
 				 "seconds ago).", diff);
 			message.msg = text;
-			syslog(LOG_DEBUG, MODULE ": %s", message.msg);
+			pam_syslog(pamh, LOG_DEBUG, "%s", message.msg);
 			conv->conv(1, messages, &responses, conv->appdata_ptr);
 		} else {
-			syslog(LOG_DEBUG, MODULE ": bogus conversation function");
+			pam_syslog(pamh, LOG_DEBUG, "bogus conversation function");
 		}
 	} else {
-		syslog(LOG_DEBUG, MODULE ": no conversation function");
+		pam_syslog(pamh, LOG_DEBUG, "no conversation function");
 	}
 }
 
@@ -381,8 +382,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			if ((p != NULL) && (*p == '\0')) {
 				interval = tmp;
 				if (debug) {
-					syslog(LOG_DEBUG,
-					       MODULE ": setting timeout to %ld"
+					pam_syslog(pamh, LOG_DEBUG,
+					       "setting timeout to %ld"
 					       " seconds", (long)interval);
 				}
 			}
@@ -390,8 +391,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		if (strcmp(argv[i], "verbose") == 0) {
 			verbose = 1;
 			if (debug) {
-				syslog(LOG_DEBUG,
-				       MODULE ": becoming more verbose");
+				pam_syslog(pamh, LOG_DEBUG,
+				       "becoming more verbose");
 			}
 		}
 	}
@@ -414,9 +415,9 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	fd = open(path, O_RDONLY | O_NOFOLLOW);
 	if (fd == -1) {
 		if (debug) {
-			syslog(LOG_DEBUG,
-			       MODULE ": cannot open timestamp `%s': %s",
-			       path, strerror(errno));
+			pam_syslog(pamh, LOG_DEBUG,
+			       "cannot open timestamp `%s': %m",
+			       path);
 		}
 		return PAM_AUTH_ERR;
 	}
@@ -429,7 +430,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 		/* Check that the file is owned by the superuser. */
 		if ((st.st_uid != 0) || (st.st_gid != 0)) {
-			syslog(LOG_ERR, MODULE ": timestamp file `%s' is "
+			pam_syslog(pamh, LOG_ERR, "timestamp file `%s' is "
 			       "not owned by root", path);
 			close(fd);
 			return PAM_AUTH_ERR;
@@ -437,7 +438,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 		/* Check that the file is a normal file. */
 		if (!(S_ISREG(st.st_mode))) {
-			syslog(LOG_ERR, MODULE ": timestamp file `%s' is "
+			pam_syslog(pamh, LOG_ERR, "timestamp file `%s' is "
 			       "not a regular file", path);
 			close(fd);
 			return PAM_AUTH_ERR;
@@ -451,7 +452,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		}
 		if (st.st_size !=
 		    strlen(path) + 1 + sizeof(then) + hmac_sha1_size()) {
-			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' "
+			pam_syslog(pamh, LOG_NOTICE, "timestamp file `%s' "
 			       "appears to be corrupted", path);
 			close(fd);
 			return PAM_AUTH_ERR;
@@ -472,8 +473,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			count += i;
 		}
 		if (count < st.st_size) {
-			syslog(LOG_NOTICE, MODULE ": error reading timestamp "
-				"file `%s'", path);
+			pam_syslog(pamh, LOG_NOTICE, "error reading timestamp "
+				"file `%s': %m", path);
 			close(fd);
 			free(message);
 			return PAM_AUTH_ERR;
@@ -486,7 +487,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		if ((mac == NULL) ||
 		    (memcmp(path, message, strlen(path)) != 0) ||
 		    (memcmp(mac, message_end, maclen) != 0)) {
-			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
+			pam_syslog(pamh, LOG_NOTICE, "timestamp file `%s' is "
 				"corrupted", path);
 			close(fd);
 			free(message);
@@ -504,7 +505,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		}
 		if (check_login_time(ruser, then) != PAM_SUCCESS)
 		{
-			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
+			pam_syslog(pamh, LOG_NOTICE, "timestamp file `%s' is "
 			       "older than oldest login, disallowing "
 			       "access to %s for user %s",
 			       path, service, ruser);
@@ -516,7 +517,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		now = time(NULL);
 		if (timestamp_good(then, now, interval) == PAM_SUCCESS) {
 			close(fd);
-			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' is "
+			pam_syslog(pamh, LOG_NOTICE, "timestamp file `%s' is "
 			       "only %ld seconds old, allowing access to %s "
 			       "for user %s", path, (long) (now - st.st_mtime),
 			       service, ruser);
@@ -526,7 +527,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			return PAM_SUCCESS;
 		} else {
 			close(fd);
-			syslog(LOG_NOTICE, MODULE ": timestamp file `%s' has "
+			pam_syslog(pamh, LOG_NOTICE, "timestamp file `%s' has "
 			       "unacceptable age (%ld seconds), disallowing "
 			       "access to %s for user %s",
 			       path, (long) (now - st.st_mtime),
@@ -580,10 +581,9 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			} else {
 				if (errno != EEXIST) {
 					if (debug) {
-						syslog(LOG_DEBUG,
-						       MODULE ": error creating"
-						       " directory `%s': %s",
-						       subdir, strerror(errno));
+						pam_syslog(pamh, LOG_DEBUG,
+						    "error creating directory `%s': %m",
+						    subdir);
 					}
 					return PAM_SESSION_ERR;
 				}
@@ -594,7 +594,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* Generate the message. */
 	text = malloc(strlen(path) + 1 + sizeof(now) + hmac_sha1_size());
 	if (text == NULL) {
-		syslog(LOG_ERR, MODULE ": unable to allocate memory: %m");
+		pam_syslog(pamh, LOG_ERR, "unable to allocate memory: %m");
 		return PAM_SESSION_ERR;
 	}
 	p = text;
@@ -612,7 +612,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 				0, 0,
 				text, p - text);
 	if (mac == NULL) {
-		syslog(LOG_ERR, MODULE ": failure generating MAC: %m");
+		pam_syslog(pamh, LOG_ERR, "failure generating MAC: %m");
 		free(text);
 		return PAM_SESSION_ERR;
 	}
@@ -623,7 +623,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* Open the file. */
 	fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (fd == -1) {
-		syslog(LOG_ERR, MODULE ": unable to open `%s': %m", path);
+		pam_syslog(pamh, LOG_ERR, "unable to open `%s': %m", path);
 		free(text);
 		return PAM_SESSION_ERR;
 	}
@@ -633,7 +633,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* Write the timestamp to the file. */
 	if (write(fd, text, p - text) != p - text) {
-		syslog(LOG_ERR, MODULE ": unable to write to `%s': %m", path);
+		pam_syslog(pamh, LOG_ERR, "unable to write to `%s': %m", path);
 		close(fd);
 		free(text);
 		return PAM_SESSION_ERR;
@@ -642,7 +642,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* Close the file and return successfully. */
 	close(fd);
 	free(text);
-	syslog(LOG_DEBUG, MODULE ": updated timestamp file `%s'", path);
+	pam_syslog(pamh, LOG_DEBUG, "updated timestamp file `%s'", path);
 	return PAM_SUCCESS;
 }
 
@@ -751,7 +751,7 @@ main(int argc, char **argv)
 	do {
 		/* Sanity check the timestamp directory itself. */
 		if (retval == 0) {
-			if (check_dir_perms(TIMESTAMPDIR) != PAM_SUCCESS) {
+			if (check_dir_perms(NULL, TIMESTAMPDIR) != PAM_SUCCESS) {
 				retval = 5;
 			}
 		}

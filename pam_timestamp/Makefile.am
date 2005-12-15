@@ -1,29 +1,38 @@
-include ../Makefile-module.am
+#
+# Copyright (c) 2005 Thorsten Kukuk <kukuk@suse.de>
+# Copyright (c) 2005 Red Hat, Inc.
+#
 
-EXTRA_DIST = pam_timestamp.8
+CLEANFILES = *~
 
-noinst_LTLIBRARIES = libhmac.la
-libhmac_la_SOURCES = \
-	hmacsha1.c \
-	hmacsha1.h \
-	sha1.c \
-	sha1.h \
-	sha1sum.c
+man_MANS = pam_timestamp.8 pam_timestamp_check.8
+EXTRA_DIST = README $(man_MANS)
 
-module_LTLIBRARIES = pam_timestamp.la
-pam_timestamp_la_SOURCES = pam_timestamp.c
-pam_timestamp_la_LDFLAGS = $(MODULE_LDFLAGS)
-pam_timestamp_la_LIBADD = libhmac.la ../lib/libmisc.la
+securelibdir = $(SECUREDIR)
+secureconfdir = $(SCONFIGDIR)
 
+noinst_HEADERS = hmacsha1.h
+
+AM_CFLAGS = -I$(top_srcdir)/libpam/include -I$(top_srcdir)/libpamc/include
+AM_LDFLAGS = -no-undefined -avoid-version -module \
+	-L$(top_builddir)/libpam -lpam
+
+pam_timestamp_la_LDFLAGS = -no-undefined -avoid-version -module
+if HAVE_VERSIONING
+  pam_timestamp_la_LDFLAGS += -Wl,--version-script=$(srcdir)/../modules.map
+endif
+
+securelib_LTLIBRARIES = pam_timestamp.la
 sbin_PROGRAMS = pam_timestamp_check
-pam_timestamp_check_SOURCES = pam_timestamp_check.c
-pam_timestamp_check_LDADD = libhmac.la ../lib/libmisc.la
 
-EXTRA_PROGRAMS = hmactest hmacfile
-hmactest_CFLAGS = @OPENSSL_CFLAGS@
+pam_timestamp_la_SOURCES = pam_timestamp.c hmacsha1.c sha1.c hmacsha1.h
+pam_timestamp_la_CFLAGS = $(AM_CFLAGS)
+
+pam_timestamp_check_SOURCES = pam_timestamp_check.c hmacsha1.c sha1.c hmacsha1.h
+
+hmacfile_SOURCES = hmacfile.c hmacsha1.c sha1.c hmacsha1.h
+
 hmactest_SOURCES = hmactest.c
-hmactest_LDADD = libhmac.la ../lib/libmisc.la @OPENSSL_LIBS@
-hmacfile_SOURCES = hmacfile.c
-hmacfile_LDADD = libhmac.la ../lib/libmisc.la
+hmactest_LDADD = -lcrypto
 
-man8_MANS = pam_timestamp.8
+noinst_PROGRAMS = hmacfile hmactest

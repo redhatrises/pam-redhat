@@ -22,6 +22,7 @@
  * PAM module that sets the login uid introduced in kernel 2.6.11
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <syslog.h>
@@ -32,29 +33,17 @@
 #include <errno.h>
 
 #include <security/pam_modules.h>
-#include <security/_pam_modutil.h>
+#include <security/pam_ext.h>
+#include <security/pam_modutil.h>
 
-#define __USE_GNU
 #include <fcntl.h>
-#undef __USE_GNU
 
-
-static void _pam_log(int err, const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	openlog("pam_loginuid", LOG_CONS|LOG_PID, LOG_AUTH);
-	vsyslog(err, format, args);
-	va_end(args);
-	closelog();
-}
 
 /*
  * This function writes the loginuid to the /proc system. It returns
  * 0 on success and 1 on failure.
  */
-static int set_loginuid(uid_t uid)
+static int set_loginuid(pam_handle_t *pamh, uid_t uid)
 {
 	int fd, count, rc = 0;
 	char loginuid[16];
@@ -67,10 +56,10 @@ static int set_loginuid(uid_t uid)
 			rc = 1;
 			loglevel = LOG_ERR;
 		}
-		_pam_log(loglevel, "set_loginuid failed opening loginuid\n");
+		pam_syslog(pamh, loglevel, "set_loginuid failed opening loginuid");
 		return rc;
 	}
-	if (_pammodutil_write(fd, loginuid, count) != count) 
+	if (pam_modutil_write(fd, loginuid, count) != count) 
 		rc = 1;
 	close(fd);
 	return rc;
@@ -88,19 +77,19 @@ _pam_loginuid(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* get user name */
 	if (pam_get_item(pamh, PAM_USER, (const void **) &user) != PAM_SUCCESS)
 	{
-		_pam_log(LOG_ERR, "error recovering login user-name");
+		pam_syslog(pamh, LOG_ERR, "error recovering login user-name");
 		return PAM_SESSION_ERR;
 	}
 
         /* get user info */
 	if ((pwd = getpwnam(user)) == NULL) {
-		_pam_log(LOG_ERR,
+		pam_syslog(pamh, LOG_ERR,
 			 "error: login user-name '%s' does not exist", user);
 		return PAM_SESSION_ERR;
 	}
 
-	if (set_loginuid(pwd->pw_uid)) {
-		_pam_log(LOG_ERR, "set_loginuid failed\n");
+	if (set_loginuid(pamh, pwd->pw_uid)) {
+		pam_syslog(pamh, LOG_ERR, "set_loginuid failed\n");
 		return PAM_SESSION_ERR;
 	}
 

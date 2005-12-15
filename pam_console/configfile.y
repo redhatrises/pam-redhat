@@ -13,8 +13,11 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <pwd.h>
+#include <chmod.h>
+
 #include <security/pam_modules.h>
-#include <security/_pam_modutil.h>
+#include <security/pam_modutil.h>
 
 static GHashTable *namespace = NULL;
 static GSList *configList = NULL;
@@ -99,7 +102,7 @@ config:		classlist STRING classlist optstring optstring EOL {
 classlist:	OBRACKET string CBRACKET {
 		  class *c = g_hash_table_lookup(namespace, $2);
 		  if(!c) {
-		    _pam_log(LOG_ERR, FALSE,
+		    _pam_log(NULL, LOG_ERR, FALSE,
 			  "unknown class \"%s\" at line %d in %s\n",
 			  (const char *)$2, lineno, filename);
 		    _exit(1);
@@ -130,14 +133,14 @@ string:		STRING {$$=$1;} ;
 /* exported functions */
 
 /* parse a file given by a name */
-STATIC void
+void
 parse_file(const char *name) {
   FILE *infile;
 
-  _pam_log(LOG_DEBUG, TRUE, "parsing config file %s", name);
+  _pam_log(NULL, LOG_DEBUG, TRUE, "parsing config file %s", name);
   infile = fopen(name, "r");
   if (!infile) {
-    _pam_log(LOG_ERR, FALSE, "could not parse required file %s", name);
+    _pam_log(NULL, LOG_ERR, FALSE, "could not parse required file %s", name);
     return;
   }
 
@@ -166,14 +169,14 @@ check_one_console_name (const char *name, char *classComponent) {
     return !r_err;
 }
 
-STATIC int
+int
 check_console_name (const char *consolename) {
     GSList *this_class;
     GSList *this_list;
     class *c;
     int found = 0;
 
-    _pam_log(LOG_DEBUG, TRUE, "check console %s", consolename);
+    _pam_log(NULL, LOG_DEBUG, TRUE, "check console %s", consolename);
     if (consoleNameCache != consolename) {
 	consoleNameCache = consolename;
 	if (consoleHash) g_hash_table_destroy(consoleHash);
@@ -201,7 +204,7 @@ check_console_name (const char *consolename) {
 	return 1;
 
     /* not found */
-    _pam_log(LOG_INFO, TRUE, "did not find console %s", consolename);
+    _pam_log(NULL, LOG_INFO, TRUE, "did not find console %s", consolename);
     if (consoleHash) {
 	g_hash_table_destroy(consoleHash);
 	consoleHash = NULL;
@@ -209,7 +212,7 @@ check_console_name (const char *consolename) {
     return 0;
 }
 
-STATIC int
+int
 set_permissions(const char *consolename, const char *username, GSList *files) {
     struct passwd *pwd;
     config *c;
@@ -221,7 +224,7 @@ set_permissions(const char *consolename, const char *username, GSList *files) {
 
     pwd = getpwnam(username);
     if (pwd == NULL) {
-	_pam_log(LOG_ERR, FALSE, "getpwnam failed for \"%s\"", username);
+	_pam_log(NULL, LOG_ERR, FALSE, "getpwnam failed for \"%s\"", username);
 	return -1;
     }
 
@@ -237,7 +240,7 @@ set_permissions(const char *consolename, const char *username, GSList *files) {
     return 0;
 }
 
-STATIC int
+int
 reset_permissions(const char *consolename, GSList *files) {
     struct passwd *pwd;
     struct group *grp;
@@ -253,13 +256,13 @@ reset_permissions(const char *consolename, GSList *files) {
 	if (g_hash_table_lookup(consoleHash, c->console_class)) {
 	    pwd = getpwnam(c->revert_owner ? c->revert_owner : "root");
 	    if (pwd == NULL) {
-		_pam_log(LOG_ERR, FALSE, "getpwnam failed for %s",
+		_pam_log(NULL, LOG_ERR, FALSE, "getpwnam failed for %s",
 			 c->revert_owner ? c->revert_owner : "root");
 		return -1;
 	    }
 	    grp = getgrnam(c->revert_group ? c->revert_group : "root");
 	    if (grp == NULL) {
-                _pam_log(LOG_ERR, FALSE, "getgrnam failed for %s",
+                _pam_log(NULL, LOG_ERR, FALSE, "getgrnam failed for %s",
                          c->revert_group ? c->revert_group : "root");
                 return -1;
             }

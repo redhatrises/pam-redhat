@@ -21,7 +21,7 @@
    along with this program; if not, write to the Free Software Foundation,
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "../../_pam_aconf.h"
+#include "config.h"
 #include <errno.h>
 #include <glob.h>
 #include <fnmatch.h>
@@ -34,8 +34,6 @@
 #include <dirent.h>
 #include <mntent.h>
 #define NAMLEN(dirent) strlen((dirent)->d_name)
-
-#include <glib.h>
 
 #include "chmod.h"
 #include "modechange.h"
@@ -134,7 +132,7 @@ change_file (const char *file, const struct mode_change *changes,
   return errors;
 }
 
-static void
+void
 chmod_set_fstab(const char *fstab)
 {
   fstab_filename = strdup(fstab);

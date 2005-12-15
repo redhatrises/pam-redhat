@@ -4,6 +4,12 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.99.1-1: Thu Dec 15 2005
+
+* Update all modules so they use automake infrastructure of the current
+  Linux-PAM release.
+* Changed logging to pam_syslog.
+
 0.80-1: Thu Jul 14 2005
 
 * pam_console: support perms.d directory with permissions files

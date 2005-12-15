@@ -81,7 +81,7 @@ RL(u_int32_t n, u_int32_t s)
 }
 
 static u_int32_t
-round(u_int32_t (*FUNC)(u_int32_t, u_int32_t, u_int32_t),
+sha1_round(u_int32_t (*FUNC)(u_int32_t, u_int32_t, u_int32_t),
       u_int32_t a, u_int32_t b, u_int32_t c, u_int32_t d, u_int32_t e,
       u_int32_t i, u_int32_t n)
 {
@@ -120,19 +120,19 @@ sha1_process(struct sha1_context *ctx, u_int32_t buffer[SHA1_BLOCK_SIZE / 4])
 	e = ctx->e;
 
 	for (i =  0; i < 20; i++) {
-		temp = round(F, a, b, c, d, e, data[i], 0x5a827999);
+		temp = sha1_round(F, a, b, c, d, e, data[i], 0x5a827999);
 		e = d; d = c; c = RL(b, 30); b = a; a = temp;
 	}
 	for (i = 20; i < 40; i++) {
-		temp = round(G, a, b, c, d, e, data[i], 0x6ed9eba1);
+		temp = sha1_round(G, a, b, c, d, e, data[i], 0x6ed9eba1);
 		e = d; d = c; c = RL(b, 30); b = a; a = temp;
 	}
 	for (i = 40; i < 60; i++) {
-		temp = round(H, a, b, c, d, e, data[i], 0x8f1bbcdc);
+		temp = sha1_round(H, a, b, c, d, e, data[i], 0x8f1bbcdc);
 		e = d; d = c; c = RL(b, 30); b = a; a = temp;
 	}
 	for (i = 60; i < 80; i++) {
-		temp = round(G, a, b, c, d, e, data[i], 0xca62c1d6);
+		temp = sha1_round(G, a, b, c, d, e, data[i], 0xca62c1d6);
 		e = d; d = c; c = RL(b, 30); b = a; a = temp;
 	}
 

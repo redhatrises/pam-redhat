@@ -46,10 +46,10 @@
 
 #define PAM_CONST const
 
-#include "../../_pam_aconf.h"
-#include "../../libpam/include/security/_pam_types.h"
+#include "config.h"
+#include <security/_pam_types.h>
 #include "../../libpam/pam_private.h"
-#include <sys/syslog.h>
+#include <syslog.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -338,12 +338,8 @@ _pam_stack_dispatch(pam_handle_t *pamh, int flags, int argc, const char **argv,
 	}
 
 	/* Sign-on message. */
-	if(debug) {
-		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
-		syslog(LOG_DEBUG, "called from \"%s\"",
-		       parent_service ? parent_service : "unknown service");
-		closelog();
-	}
+	syslog(LOG_WARNING|LOG_AUTHPRIV, "Deprecated pam_stack module called from service \"%s\"",
+	       parent_service ? parent_service : "unknown service");
 	if(service == NULL) {
 		openlog("pam_stack", LOG_PID, LOG_AUTHPRIV);
 		syslog(LOG_ERR, "required argument \"service\" not given");

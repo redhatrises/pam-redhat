@@ -6,8 +6,9 @@
  * written by Andrew Morgan <morgan@linux.kernel.org> 1996/3/11
  */
 
-#include "../config.h"
-#include "../lib/libmisc.h"
+#define _GNU_SOURCE
+
+#include "config.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -25,26 +26,14 @@
 #define PAM_SM_AUTH
 
 #include <security/pam_modules.h>
-
-/* some syslogging */
-
-static void _pam_log(int err, const char *format, ...)
-{
-    va_list args;
-
-    va_start(args, format);
-    openlog("PAM-postgresok", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
-    vsyslog(err, format, args);
-    va_end(args);
-    closelog();
-}
-
+#include <security/pam_ext.h>
+#include <security/pam_modutil.h>
 
 /* argument parsing */
 
 #define PAM_DEBUG_ARG       01
 
-static int _pam_parse(int argc, const char **argv)
+static int _pam_parse(pam_handle_t *pamh, int argc, const char **argv)
 {
     int ctrl=0;
 
@@ -56,7 +45,7 @@ static int _pam_parse(int argc, const char **argv)
 	if (!strcmp(*argv,"debug"))
 	    ctrl |= PAM_DEBUG_ARG;
 	else {
-	    _pam_log(LOG_ERR,"pam_parse: unknown option; %s",*argv);
+	    pam_syslog(pamh, LOG_ERR,"pam_parse: unknown option; %s",*argv);
 	}
     }
 
@@ -74,16 +63,16 @@ int pam_sm_authenticate(pam_handle_t *pamh,int flags,int argc
     int ctrl;
     int retval = PAM_AUTH_ERR;
 
-    ctrl = _pam_parse(argc, argv);
+    ctrl = _pam_parse(pamh, argc, argv);
 
     uid = getuid();
-    pw = libmisc_getpwuid(pamh, uid);
+    pw = pam_modutil_getpwuid(pamh, uid);
 
     if ((uid == 26) && (pw != NULL) && (strcmp(pw->pw_name, "postgres") == 0))
 	retval = PAM_SUCCESS;
 
     if (ctrl & PAM_DEBUG_ARG) {
-	_pam_log(LOG_DEBUG, "authentication %s"
+	pam_syslog(pamh, LOG_DEBUG, "authentication %s"
 		 , retval==PAM_SUCCESS ? "succeeded":"failed" );
     }
 

@@ -14,7 +14,6 @@ sed '
 /^YY_BUFFER_STATE yy_scan_string/s/^/STATIC /
 /^void yy_switch_to_buffer/s/^/STATIC /
 /define YY_DECL int yylex/s/YY_DECL /YY_DECL STATIC /
-/^int$/s/^/STATIC /
 /^int yyparse/s/^/STATIC /
 /^void yyrestart/s/^/STATIC /
 ' < $1 > sedtmp.$$ && mv sedtmp.$$ $1

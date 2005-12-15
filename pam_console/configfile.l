@@ -6,10 +6,14 @@
  */
 /* get around an apparant bug in bison; YYSTYPE not copied into config.tab.h */
 #define YYSTYPE void *
-#include "config.tab.h"
+#include "configfile.h"
+#include "configfile.tab.h"
 #include <stdio.h>
 #include <string.h>
 #include <glib.h>
+#include <syslog.h>
+
+#include "pam_console.h"
 
 static int lineno;
 static const char *filename;
@@ -43,7 +47,7 @@ lex_set_filename(const char *name) {
 
 static int
 _pc_yyerror (const char *s) {
-  _pam_log(LOG_ERR, 0, "%s line %d: %s: at `%s'\n",
+  _pam_log(NULL, LOG_ERR, 0, "%s line %d: %s: at `%s'\n",
 	   filename, lineno, s, (char *)_pc_yylval);
   return 0;
 }

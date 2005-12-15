@@ -2,7 +2,7 @@
  * Read in the file, and grant ownerships to whoever has the lock.
  */
 
-#include "../../_pam_aconf.h"
+#include "config.h"
 #include <errno.h>
 #include <glib.h>
 #include <pwd.h>
@@ -21,7 +21,7 @@
 #define STATIC static
 #include "chmod.h"
 #include "pam_console.h"
-#include "config.h"
+#include "configfile.h"
 
 #include <security/_pam_macros.h>
 
@@ -35,17 +35,8 @@ static char tty[PATH_MAX] = "tty0";
 static int debug = 0;
 static int syslogging = 0;
 
-static void *
-_do_malloc(size_t req)
-{
-	void *ret;
-	ret = malloc(req);
-	if (!ret) abort();
-	return ret;
-}
-
-static void
-_pam_log(int err, int debug_p, const char *format, ...)
+void
+_pam_log(pam_handle_t *pamh, int err, int debug_p, const char *format, ...)
 {
 	va_list args;
 	if (debug_p && !debug) return;
@@ -152,7 +143,7 @@ main(int argc, char **argv)
         fd = open(consolelock, O_RDONLY);
 	if (fd != -1) {
 		if (fstat (fd, &st)) {
-			_pam_log(LOG_ERR, FALSE,
+			_pam_log(NULL, LOG_ERR, FALSE,
 			       "\"impossible\" fstat error on %s", consolelock);
 			close(fd);
 			goto return_error;
@@ -161,7 +152,7 @@ main(int argc, char **argv)
 			consoleuser = _do_malloc(st.st_size+1);
 			memset(consoleuser, '\0', st.st_size);
 			if ((i = read (fd, consoleuser, st.st_size)) == -1) {
-				_pam_log(LOG_ERR, FALSE,
+				_pam_log(NULL, LOG_ERR, FALSE,
 				       "\"impossible\" read error on %s",
 				       consolelock);
 				goto return_error;
@@ -183,11 +174,3 @@ main(int argc, char **argv)
 return_error:
 	return 1;
 }
-
-/* supporting functions included from other .c files... */
-
-#include "regerr.c"
-#include "chmod.c"
-#include "modechange.c"
-#include "config.lex.c"
-#include "config.tab.c"

@@ -1,8 +1,21 @@
-include ../Makefile-module.am
+#
+# Copyright (c) 2005 Thorsten Kukuk <kukuk@suse.de>
+# Copyright (c) 2005 Red Hat, Inc.
+#
 
-EXTRA_DIST = pam_rps.8
+CLEANFILES = *~
 
-module_LTLIBRARIES = pam_rps.la
-pam_rps_la_SOURCES = pam_rps.c
-pam_rps_la_LDFLAGS = $(MODULE_LDFLAGS)
-man8_MANS = pam_rps.8
+man_MANS = pam_rps.8
+EXTRA_DIST = README $(man_MANS)
+
+securelibdir = $(SECUREDIR)
+secureconfdir = $(SCONFIGDIR)
+
+AM_CFLAGS = -I$(top_srcdir)/libpam/include -I$(top_srcdir)/libpamc/include
+AM_LDFLAGS = -no-undefined -avoid-version -module \
+	-L$(top_builddir)/libpam -lpam
+if HAVE_VERSIONING
+  AM_LDFLAGS += -Wl,--version-script=$(srcdir)/../modules.map
+endif
+
+securelib_LTLIBRARIES = pam_rps.la

@@ -30,7 +30,7 @@
    changing the mode of many files, this probably results in a
    performance gain. */
 
-#include "../config.h"
+#include "config.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "modechange.h"
@@ -72,7 +72,7 @@ oatoi (const char *s)
    representation of file mode change operations;
    return MODE_MEMORY_EXHAUSTED if there is insufficient memory. */
 
-struct mode_change *
+STATIC struct mode_change *
 mode_compile (mode_string, masked_ops)
      const char *mode_string;
      unsigned masked_ops;
@@ -241,7 +241,7 @@ invalid:
    change affects it even if no execute bits were set in OLDMODE.
    The returned value has the S_IFMT bits cleared. */
 
-unsigned short
+STATIC unsigned short
 mode_adjust (oldmode, changes)
      unsigned oldmode;
      const struct mode_change *changes;
@@ -308,7 +308,7 @@ mode_adjust (oldmode, changes)
 /* Free the memory used by the list of file mode change operations
    CHANGES. */
 
-void
+STATIC void
 mode_free (changes)
      register struct mode_change *changes;
 {

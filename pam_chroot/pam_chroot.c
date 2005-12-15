@@ -4,7 +4,7 @@
  * $Id$
  */
 
-#include "../config.h"
+#include "config.h"
 
 #define	PAM_SM_SESSION
 #include <security/pam_modules.h>
@@ -34,8 +34,6 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 	char const *user;
 	FILE *conf;
 
-	openlog("pam_chroot", LOG_PID, LOG_AUTHPRIV);
-
 	/* parse command-line arguments */
 	for(i = 0; i < argc; i++) {
 		if(strcmp(argv[i], "debug") == 0)
@@ -46,14 +44,14 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 	}
 
 	if((ret = pam_get_user(pamh, &user, NULL)) != PAM_SUCCESS) {
-		syslog(LOG_ERR, "can't get username: %s",
+		pam_syslog(pamh, LOG_ERR, "can't get username: %s",
 				pam_strerror(pamh, ret));
 		return ret;
 	}
 
 	conf = fopen(CONFIG, "r");
 	if(conf == NULL) {
-		syslog(LOG_ERR, "can't open config file \"" CONFIG "\": %s",
+		pam_syslog(pamh, LOG_ERR, "can't open config file \"" CONFIG "\": %s",
 				strerror(errno));
 		return ret;
 	}
@@ -74,7 +72,7 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 			continue;
 
 		if((dir = strtok_r(NULL, " \t\r\n", &p)) == NULL) {
-			syslog(LOG_ERR, CONFIG ":%d: no directory", lineno);
+			pam_syslog(pamh, LOG_ERR, CONFIG ":%d: no directory", lineno);
 			ret = onerr;
 			break;
 		}
@@ -88,7 +86,7 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 			memset(errbuf, 0, len + 1);
 			regerror(err, &name_regex, errbuf, len);
 
-			syslog(LOG_ERR, CONFIG ":%d: illegal regex \"%s\": %s",
+			pam_syslog(pamh, LOG_ERR, CONFIG ":%d: illegal regex \"%s\": %s",
 					lineno, name, errbuf);
 
 			free(errbuf);
@@ -105,32 +103,32 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 			struct stat st;
 
 			if (stat(dir, &st) == -1) {
-				syslog(LOG_ERR, "stat(%s) failed: %s",
+				pam_syslog(pamh, LOG_ERR, "stat(%s) failed: %s",
 						dir, strerror(errno));
 				ret = onerr;
 			} else
 			/* Catch the most common misuse */
 			if (st.st_uid != 0 ||
 			    (st.st_mode & (S_IWGRP | S_IWOTH))) {
-				syslog(LOG_ERR, "%s is writable by non-root",
+				pam_syslog(pamh, LOG_ERR, "%s is writable by non-root",
 						dir);
 				ret = onerr;
 			} else
 			if(chdir(dir) == -1) {
-				syslog(LOG_ERR, "chdir(%s) failed: %s",
+				pam_syslog(pamh, LOG_ERR, "chdir(%s) failed: %s",
 						dir, strerror(errno));
 				ret = onerr;
 			} else {
 				if(debug) {
-					syslog(LOG_ERR, "chdir(%s) succeeded",
+					pam_syslog(pamh, LOG_ERR, "chdir(%s) succeeded",
 							dir);
 				}
 				if(chroot(dir) == -1) {
-					syslog(LOG_ERR, "chroot(%s) failed: %s",
+					pam_syslog(pamh, LOG_ERR, "chroot(%s) failed: %s",
 							dir, strerror(errno));
 					ret = onerr;
 				} else {
-					syslog(LOG_ERR, "chroot(%s) succeeded",
+					pam_syslog(pamh, LOG_ERR, "chroot(%s) succeeded",
 							dir);
 					ret = PAM_SUCCESS;
 				}
@@ -140,7 +138,6 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 	}
 
 	fclose(conf);
-	closelog();
 	return ret;
 }
 

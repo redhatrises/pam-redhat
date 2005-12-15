@@ -5,10 +5,14 @@
 #ifndef _PAM_CONSOLE_H
 #define _PAM_CONSOLE_H
 #include <security/pam_modules.h>
+#include <regex.h>
 
 #define LOCKFILE "console.lock"
 
-static void
-_pam_log(int err, int debug_p, const char *format, ...);
+void
+_pam_log(pam_handle_t *pamh, int err, int debug_p, const char *format, ...);
+
+void
+do_regerror(int errcode, const regex_t *preg);
 
 #endif /* _PAM_CONSOLE_H */

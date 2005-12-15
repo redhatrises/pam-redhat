@@ -5,14 +5,12 @@
 #ifndef _HANDLERS_H
 #define _HANDLERS_H
 
-#ifndef STATIC
-#define STATIC
-#endif
+#include <security/pam_modules.h>
 
 #define HANDLERS_MAXLINELEN 2000
 
-STATIC int console_parse_handlers (const char *filename);
-STATIC void console_run_handlers(int lock, const char *user, const char *tty);
-STATIC const char *console_get_regexes(void);
+int console_parse_handlers (pam_handle_t *pamh, const char *filename);
+void console_run_handlers(pam_handle_t *pamh, int lock, const char *user, const char *tty);
+const char *console_get_regexes(void);
 
 #endif /* _HANDLERS_H */

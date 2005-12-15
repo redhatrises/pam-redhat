@@ -16,8 +16,9 @@
    along with this program; if not, write to the Free Software Foundation,
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "../../_pam_aconf.h"
+#include "config.h"
 #include <errno.h>
+#include <glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +26,12 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <syslog.h>
+
+#include "handlers.h"
+#include "pam_console.h"
 
 enum types { UNKNOWN, LOCK, UNLOCK, CONSOLEDEVS };
 enum flags { HF_LOGFAIL, HF_WAIT, HF_SETUID, HF_TTY, HF_USER, HF_PARAM };
@@ -39,7 +46,7 @@ struct console_handler {
 
 static struct console_handler *first_handler;
 
-STATIC void 
+static void 
 console_free_handlers (struct console_handler *handler) {
         if (handler != NULL) {
                 console_free_handlers(handler->next);
@@ -48,8 +55,8 @@ console_free_handlers (struct console_handler *handler) {
         }
 }
 
-STATIC int
-console_parse_handlers (const char *handlers_name) {
+int
+console_parse_handlers (pam_handle_t *pamh, const char *handlers_name) {
         FILE *fh;
         char linebuf[HANDLERS_MAXLINELEN+1];
         int forget;
@@ -59,7 +66,7 @@ console_parse_handlers (const char *handlers_name) {
         
         fh = fopen(handlers_name, "r");
         if (fh == NULL) {
-                _pam_log(LOG_ERR, FALSE, "cannot open file %s for reading", handlers_name);
+                _pam_log(pamh, LOG_ERR, FALSE, "cannot open file %s for reading", handlers_name);
                 return rv;
         }
         
@@ -77,7 +84,7 @@ console_parse_handlers (const char *handlers_name) {
                 
                 len = strlen(linebuf);
                 if (linebuf[len-1] != '\n') {
-                        _pam_log(LOG_INFO, FALSE, "line too long or not ending with new line char - will be ignored");
+                        _pam_log(pamh, LOG_INFO, FALSE, "line too long or not ending with new line char - will be ignored");
                         skip = 1;
                         continue;
                 }
@@ -194,7 +201,7 @@ call_exec(struct console_handler *handler, int nparams, const char *user, const 
 }
 
 static int
-execute_handler(struct console_handler *handler, const char *user, const char *tty) {
+execute_handler(pam_handle_t *pamh, struct console_handler *handler, const char *user, const char *tty) {
         const char *flagptr;
         int nparams = 0;
         int logfail = 0;
@@ -229,7 +236,7 @@ execute_handler(struct console_handler *handler, const char *user, const char *t
         child = fork();
         switch (child) {
         case -1:
-		_pam_log(LOG_ERR, !logfail, "fork failed when executing handler '%s'",
+		_pam_log(pamh, LOG_ERR, !logfail, "fork failed when executing handler '%s'",
 				handler->executable);
 		return -1;
         case 0:
@@ -270,30 +277,30 @@ execute_handler(struct console_handler *handler, const char *user, const char *t
 		signal(SIGCHLD, sighandler);
 
 	if (WIFEXITED(rv) && WEXITSTATUS(rv) != 0)
-		_pam_log(LOG_ERR, !logfail, "handler '%s' returned %d on exit",
+		_pam_log(pamh, LOG_ERR, !logfail, "handler '%s' returned %d on exit",
 			handler->executable, (int)WEXITSTATUS(rv));
 	else if (WIFSIGNALED(rv))
-		_pam_log(LOG_ERR, !logfail, "handler '%s' caught a signal %d",
+		_pam_log(pamh, LOG_ERR, !logfail, "handler '%s' caught a signal %d",
 			handler->executable, (int)WTERMSIG(rv));
 			
         return 0;
 }
 
-STATIC void
-console_run_handlers(int lock, const char *user, const char *tty) {
+void
+console_run_handlers(pam_handle_t *pamh, int lock, const char *user, const char *tty) {
         struct console_handler *handler;
 
         for (handler = first_handler; handler != NULL; handler = handler->next) {
                 if (lock && handler->type == LOCK) {
-                        execute_handler(handler, user, tty);
+                        execute_handler(pamh, handler, user, tty);
                 }
                 else if (!lock && handler->type == UNLOCK) {
-                        execute_handler(handler, user, tty);
+                        execute_handler(pamh, handler, user, tty);
                 }
         }
 }
 
-STATIC const char *
+const char *
 console_get_regexes(void) {
         struct console_handler *handler;
 

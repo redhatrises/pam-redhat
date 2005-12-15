@@ -5,6 +5,7 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include <glib.h>
+#define STATIC static
 
 typedef struct class_s class;
 struct class_s {
@@ -22,16 +23,19 @@ struct config_s {
 	char*	revert_group;
 };
 
-STATIC void
+void
 parse_file(const char *name);
 
-STATIC int
+int
 check_console_name (const char *consolename);
 
-STATIC int
+int
 set_permissions(const char *consolename, const char *username, GSList *files);
 
-STATIC int
+int
 reset_permissions(const char *consolename, GSList *files);
+
+void *
+_do_malloc(size_t req);
 
 #endif /* _CONFIG_H */
