@@ -58,7 +58,7 @@ pam_console_la_CFLAGS = $(AM_CFLAGS)
 pam_console_apply_CFLAGS = $(AM_CFLAGS)
 
 configfile.tab.c: configfile.y
-	$(YACC) $(BISON_OPTS) -p _pc_yy $<
+	$(YACC) $(BISON_OPTS) -o $@ -p _pc_yy $<
 	sh $(srcdir)/sed-static $@
 
 configfile.lex.c: configfile.l configfile.tab.c
