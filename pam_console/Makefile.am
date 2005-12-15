@@ -66,3 +66,6 @@ configfile.lex.c: configfile.l configfile.tab.c
 	sh $(srcdir)/sed-static $@
 
 configfile.c: configfile.tab.c configfile.lex.c
+
+install-data-local:
+	mkdir -p $(DESTDIR)$(secureconfdir)/console.apps
