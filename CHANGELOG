@@ -4,6 +4,9 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+* pam_console: fixed uninitialized value on broken config file 
+  (#141053, patch by Jay Fenlason)
+
 0.99.1-1: Thu Dec 15 2005
 
 * Update all modules so they use automake infrastructure of the current

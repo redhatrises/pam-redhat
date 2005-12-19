@@ -87,7 +87,9 @@ config:		classlist STRING classlist optstring optstring EOL {
                           if (*(conf->revert_owner) == '\0')
                               conf->revert_owner = NULL;
                       }
-                  }
+                  } else {
+		      conf->revert_group = NULL;
+		  }
 		  configListEnd = g_slist_append(configListEnd, conf);
 		  if (configListEnd->next) configListEnd = configListEnd->next;
 		  if (!configList) configList = configListEnd;
