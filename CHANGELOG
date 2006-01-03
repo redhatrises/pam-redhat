@@ -4,8 +4,13 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.99.2-1: Tue Jan 03 2006
+
 * pam_console: fixed uninitialized value on broken config file 
   (#141053, patch by Jay Fenlason)
+* pam_console: man page fixes.
+* pam_loginuid: added option require_auditd to require auditd running (Steve Grubb).
+* Use pam_prompt instead of direct conversation.
 
 0.99.1-1: Thu Dec 15 2005
 

@@ -46,8 +46,7 @@
 #include <errno.h>
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
-
-#define MODULE_PREFIX "pam_rps: "
+#include <security/pam_ext.h>
 
 int
 pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
@@ -58,18 +57,10 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		"\x73\x63\x69\x73\x73\x6f\x72\x73"};
 	char prompt_text[32] = "";
 	const char *want = "";
-	const struct pam_message message = {
-		PAM_PROMPT_ECHO_OFF,
-		prompt_text,
-	};
-	const struct pam_message *messages[] = {
-		&message,
-	};
-	struct pam_response *responses = NULL;
+	char *response = NULL;
 
 	int debug = 0;
 
-	struct pam_conv *conv;
 	int ret, fd, r, i;
 	unsigned char c;
 
@@ -78,18 +69,6 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			debug = 1;
 			break;
 		}
-	}
-
-	ret = pam_get_item(pamh, PAM_CONV, (const void **) &conv);
-	if (ret != PAM_SUCCESS) {
-		syslog(LOG_AUTHPRIV | LOG_CRIT,
-		       MODULE_PREFIX "error determining user name");
-		return ret;
-	}
-	if ((conv == NULL) || (conv->conv == NULL)) {
-		syslog(LOG_AUTHPRIV | LOG_CRIT,
-		       MODULE_PREFIX "conversation error");
-		return PAM_CONV_ERR;
 	}
 
 	r = -1;
@@ -131,26 +110,24 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		break;
 	}
 	if (debug) {
-		syslog(LOG_AUTHPRIV | LOG_DEBUG, "challenge is \"%s\", "
+		pam_syslog(pamh, LOG_DEBUG, "challenge is \"%s\", "
 		       "expected response is \"%s\"", prompt_text, want);
 	}
-	strcat(prompt_text, ": ");
-	ret = conv->conv(1, messages, &responses, conv->appdata_ptr);
+	ret = pam_prompt(pamh, PAM_PROMPT_ECHO_OFF, &response, "%s: ", prompt_text);
 	if (ret != PAM_SUCCESS) {
-		syslog(LOG_AUTHPRIV | LOG_CRIT,
-		       MODULE_PREFIX "conversation error");
+		pam_syslog(pamh, LOG_CRIT,
+			"conversation error");
 		return PAM_CONV_ERR;
 	}
-	if ((responses != NULL) &&
-	    (responses[0].resp_retcode == 0) &&
-	    (responses[0].resp != NULL) &&
-	    (strcasecmp(responses[0].resp, want) == 0)) {
+	if ((response != NULL) &&
+	    (strcasecmp(response, want) == 0)) {
 		ret = PAM_SUCCESS;
 	} else {
 		ret = PAM_AUTH_ERR;
 	}
-        if (responses) {
-            _pam_drop_reply(responses, 1);
+        if (response) {
+            _pam_overwrite(response);
+	    free(response);
         }
 	return ret;
 }

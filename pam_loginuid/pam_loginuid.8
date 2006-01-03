@@ -1,16 +1,16 @@
-.TH pam_loginuid 8 2005/02/10 "Red Hat Linux" "System Administrator's Manual"
+.TH pam_loginuid 8 2005/07/29 "Red Hat Linux" "System Administrator's Manual"
 .SH NAME
-pam_loginuid \- record authentication attempts to audit subsystem
+pam_loginuid \- record user's login uid to the process attribute
 .SH SYNOPSIS
 .B session required /lib/security/pam_loginuid.so
 .br
 
 .SH DESCRIPTION
-pam_loginuid sets the loginuid for the process that was authenticated. This is
-necessary for applications to be correctly audited.
+pam_loginuid sets the loginuid process attribute for the process that was authenticated. This is necessary for applications to be correctly audited. This pam module should only be used for entry point applications like: login, sshd, gdm, vsftpd, crond, at, and remote. There are probably other entry point applications besides these. You should not use it for applications like sudo or su as that defeats the purpose by changing the loginuid to the account they just switched to.
 
 .SH ARGUMENTS
-.IP none
+.IP require_auditd
+This option, when given, will cause this module to query the audit daemon status and deny logins if it is not running.
 
 .SH EXAMPLE
 \fB/etc/pam.d/gdm\fP:

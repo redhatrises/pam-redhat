@@ -38,6 +38,11 @@
 
 #include <fcntl.h>
 
+#ifdef HAVE_LIBAUDIT
+#include <libaudit.h>
+#include <sys/select.h>
+#include <errno.h>
+#endif
 
 /*
  * This function writes the loginuid to the /proc system. It returns
@@ -65,14 +70,98 @@ static int set_loginuid(pam_handle_t *pamh, uid_t uid)
 	return rc;
 }
 
+#ifdef HAVE_LIBAUDIT
+/*
+ * This function is called only if "require_auditd" option is passed. It is
+ * called after loginuid has been set. The purpose is to disallow logins
+ * should the audit daemon not be running or crashed. It returns PAM_SUCCESS
+ * if the audit daemon is running  and PAM_SESSION_ERR otherwise.
+ */
+static int check_auditd(void)
+{
+	int fd, retval;
+
+	fd = audit_open();
+	if (fd < 0) {
+		/* This is here to let people that build their own kernel
+		   and disable the audit system get in. You get these error
+		   codes only when the kernel doesn't have audit
+		   compiled in. */
+		if (errno == EINVAL || errno == EPROTONOSUPPORT ||
+		    errno == EAFNOSUPPORT)
+			return PAM_SUCCESS;
+		return PAM_SESSION_ERR;
+	}
+	retval = audit_request_status(fd);
+	if (retval > 0) {
+		struct audit_reply rep;
+		int i;
+		int timeout = 30; /* tenths of seconds */
+		fd_set read_mask;
+
+		FD_ZERO(&read_mask);
+		FD_SET(fd, &read_mask);
+
+		for (i = 0; i < timeout; i++) {
+			struct timeval t;
+			int rc;
+
+			t.tv_sec  = 0;
+			t.tv_usec = 100000;
+			do {
+				rc = select(fd+1, &read_mask, NULL, NULL, &t);
+			} while (rc < 0 && errno == EINTR);
+
+			rc = audit_get_reply(fd, &rep, GET_REPLY_NONBLOCKING,0);
+			if (rc > 0) {
+				/* If we get done or error, break out */
+				if (rep.type == NLMSG_DONE ||
+						rep.type == NLMSG_ERROR)
+					break;
+
+				/* If its not status, keep looping */
+				if (rep.type != AUDIT_GET)
+					continue;
+
+				/* Found it... */
+				close(fd);
+				if (rep.status->pid == 0)
+					return PAM_SESSION_ERR;
+				else
+					return PAM_SUCCESS;
+			}
+		}
+	}
+	close(fd);
+	if (retval == -ECONNREFUSED) {
+		/* This is here to let people that build their own kernel
+		   and disable the audit system get in. ECONNREFUSED is
+		   issued by the kernel when there is "no on listening". */
+		return PAM_SUCCESS;
+	} else if (retval == -EPERM && getuid() != 0) {
+		/* If we get this, then the kernel supports auditing
+		 * but we don't have enough privilege to write to the
+		 * socket. Therefore, we have already been authenticated
+		 * and we are a common user. Just act as though auditing
+		 * is not enabled. Any other error we take seriously. */
+		return PAM_SUCCESS;
+	}
+
+	return PAM_SESSION_ERR;
+}
+#endif
+
 /*
  * Initialize audit session for user
  */
 static int
 _pam_loginuid(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
-	char		*user = NULL;
-	struct passwd	*pwd;
+	char *user = NULL;
+	struct passwd *pwd;
+#ifdef HAVE_LIBAUDIT
+	int require_auditd = 0;
+#endif
 
 	/* get user name */
 	if (pam_get_item(pamh, PAM_USER, (const void **) &user) != PAM_SUCCESS)
@@ -93,7 +182,18 @@ _pam_loginuid(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		return PAM_SESSION_ERR;
 	}
 
-	return PAM_SUCCESS;
+#ifdef HAVE_LIBAUDIT
+	while (argc-- > 0) {
+		if (strcmp(*argv, "require_auditd") == 0)
+			require_auditd = 1;
+		argv++;
+	}
+
+	if (require_auditd)
+		return check_auditd();
+	else
+#endif
+		return PAM_SUCCESS;
 }
 
 /*

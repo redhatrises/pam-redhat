@@ -1,12 +1,12 @@
 .\" Copyright 1999 Red Hat Software, Inc.
 .\" Written by Michael K. Johnson <johnsonm@redhat.com>
-.TH pam_console 8 2005/5/2 "Red Hat" "System Administrator's Manual"
+.TH pam_console 8 2005/10/4 "Red Hat" "System Administrator's Manual"
 .SH NAME
 pam_console \- determine user owning the system console
 .SH SYNOPSIS
-.B session optional /lib/security/pam_console.so
+.B session optional pam_console.so
 .br
-.B auth required /lib/security/pam_console.so
+.B auth required pam_console.so
 .SH DESCRIPTION
 pam_console.so is designed to give users at the physical console
 (virtual terminals and local xdm-managed X sessions by default, but
@@ -73,9 +73,9 @@ session required pam_unix.so
 session optional pam_console.so
 .br
 .SH FILES
-\fI/var/run/console.lock\fP
-.br
 \fI/var/run/console/\fP
+.br
+\fI/var/run/console/console.lock\fP
 .br
 \fI/etc/security/console.apps\fP
 .br

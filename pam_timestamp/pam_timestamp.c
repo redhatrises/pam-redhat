@@ -336,27 +336,11 @@ get_timestamp_name(pam_handle_t *pamh, int argc, const char **argv,
 static void
 verbose_success(pam_handle_t *pamh, int debug, int diff)
 {
-	struct pam_conv *conv;
-	char text[BUFLEN];
-	struct pam_message message;
-	const struct pam_message *messages[] = {&message};
-	struct pam_response *responses;
-	if (pam_get_item(pamh, PAM_CONV, (const void**) &conv) == PAM_SUCCESS) {
-		if (conv->conv != NULL) {
-			memset(&message, 0, sizeof(message));
-			message.msg_style = PAM_TEXT_INFO;
-			snprintf(text, sizeof(text),
-				 "Access granted (last access was %d "
-				 "seconds ago).", diff);
-			message.msg = text;
-			pam_syslog(pamh, LOG_DEBUG, "%s", message.msg);
-			conv->conv(1, messages, &responses, conv->appdata_ptr);
-		} else {
-			pam_syslog(pamh, LOG_DEBUG, "bogus conversation function");
-		}
-	} else {
-		pam_syslog(pamh, LOG_DEBUG, "no conversation function");
-	}
+	static const char msg[]= "Access granted (last access was %d "
+			"seconds ago).";
+	pam_info(pamh, msg, diff);
+	if (debug)
+		pam_syslog(pamh, LOG_DEBUG, msg, diff);
 }
 
 PAM_EXTERN int
