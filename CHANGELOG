@@ -4,6 +4,10 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.99.3-1: Fri Feb 03 2006
+
+* Added new module pam_tally2 (partial rewrite of pam_tally)
+
 0.99.2-1: Tue Jan 03 2006
 
 * pam_console: fixed uninitialized value on broken config file 
