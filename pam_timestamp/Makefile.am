@@ -29,6 +29,8 @@ pam_timestamp_la_SOURCES = pam_timestamp.c hmacsha1.c sha1.c hmacsha1.h
 pam_timestamp_la_CFLAGS = $(AM_CFLAGS)
 
 pam_timestamp_check_SOURCES = pam_timestamp_check.c hmacsha1.c sha1.c hmacsha1.h
+pam_timestamp_check_CFLAGS = $(AM_CFLAGS) -fPIE
+pam_timestamp_check_LDFLAGS = -pie
 
 hmacfile_SOURCES = hmacfile.c hmacsha1.c sha1.c hmacsha1.h
 

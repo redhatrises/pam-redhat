@@ -530,9 +530,11 @@ tally_check (tally_t oldcnt, time_t oldtime, pam_handle_t *pamh, uid_t uid,
     }
 
 cleanup:
+#ifdef HAVE_LIBAUDIT
     if (audit_fd != -1) {
         close(audit_fd);
     }
+#endif
     return rv;
 }
 

@@ -4,6 +4,9 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+* pam_timestamp: build pam_timestamp_check as PIE
+* pam_tally2: added missing ifdef HAVE_LIBAUDIT (#180054)
+
 0.99.3-1: Fri Feb 03 2006
 
 * Added new module pam_tally2 (partial rewrite of pam_tally)
