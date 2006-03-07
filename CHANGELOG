@@ -6,6 +6,7 @@ without autoconf support.
 
 * pam_timestamp: build pam_timestamp_check as PIE
 * pam_tally2: added missing ifdef HAVE_LIBAUDIT (#180054)
+* pam_console: modified default perms to cover /dev/sequencer* (#184214)
 
 0.99.3-1: Fri Feb 03 2006
 
