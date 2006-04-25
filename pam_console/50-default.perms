@@ -29,6 +29,7 @@
 <pmu>=/dev/pmu
 <bluetooth>=/dev/rfcomm*
 <raw1394>=/dev/raw1394
+<irda>=/dev/ircomm*
 
 # permission definitions
 <console>  0660 <floppy>     0660 root.floppy
@@ -54,6 +55,7 @@
 <console>  0600 <pmu>        0600 root
 <console>  0600 <bluetooth>  0600 root
 <console>  0600 <raw1394>    0600 root
+<console>  0600 <ircomm>     0600 root
 
 <xconsole> 0600 /dev/console 0600 root.root
 <console> 0600 <dri>	     0600 root
