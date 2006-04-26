@@ -55,7 +55,7 @@
 <console>  0600 <pmu>        0600 root
 <console>  0600 <bluetooth>  0600 root
 <console>  0600 <raw1394>    0600 root
-<console>  0600 <ircomm>     0600 root
+<console>  0600 <irda>       0600 root
 
 <xconsole> 0600 /dev/console 0600 root.root
-<console> 0600 <dri>	     0600 root
+<console>  0600 <dri>	     0600 root

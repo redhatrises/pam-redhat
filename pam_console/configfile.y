@@ -107,7 +107,7 @@ classlist:	OBRACKET string CBRACKET {
 		    _pam_log(NULL, LOG_ERR, FALSE,
 			  "unknown class \"%s\" at line %d in %s\n",
 			  (const char *)$2, lineno, filename);
-		    _exit(1);
+		    YYERROR;
 		  }
 		  $$ = c;
 		}

@@ -4,6 +4,11 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.99.4-2: Wed Apr 26 2006
+
+* pam_console: fixed device class for /dev/ircomm* (#189966)
+* pam_console: handle missing device class gracefully
+
 0.99.4-1: Tue Apr 25 2006
 
 * pam_timestamp: build pam_timestamp_check as PIE
