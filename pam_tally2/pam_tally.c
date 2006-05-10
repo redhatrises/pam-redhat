@@ -342,6 +342,7 @@ get_tally(pam_handle_t *pamh, uid_t uid, const char *filename,
       }
       lstat_ret = fstat(fileno(*tfile),&fileinfo);
       fclose(*tfile);
+      *tfile = NULL;
     }
 
     if ( lstat_ret ) {
@@ -369,9 +370,10 @@ get_tally(pam_handle_t *pamh, uid_t uid, const char *filename,
       return PAM_AUTH_ERR;
     }
 
-    if (fseek(*tfile, uid*sizeof(*tally), SEEK_SET)) {
+    if (fseeko(*tfile, (off_t)uid*sizeof(*tally), SEEK_SET)) {
         pam_syslog(pamh, LOG_ALERT, "fseek failed for %s: %m", filename);
         fclose(*tfile);
+        *tfile = NULL;
         return PAM_AUTH_ERR;
     }
 
@@ -396,7 +398,7 @@ set_tally(pam_handle_t *pamh, uid_t uid,
 	  const char *filename, FILE **tfile, struct tallylog *tally)
 {
     if (tally->fail_cnt != TALLY_HI) {
-        if (fseek(*tfile, uid * sizeof(*tally), SEEK_SET)) {
+        if (fseeko(*tfile, (off_t)uid * sizeof(*tally), SEEK_SET)) {
                   pam_syslog(pamh, LOG_ALERT, "fseek failed for %s: %m", filename);
                             return PAM_AUTH_ERR;
         }
@@ -407,6 +409,7 @@ set_tally(pam_handle_t *pamh, uid_t uid,
     }
 
     if (fclose(*tfile)) {
+      *tfile = NULL;
       pam_syslog(pamh, LOG_ALERT, "update (fclose) failed for %s: %m", filename);
       return PAM_AUTH_ERR;
     }

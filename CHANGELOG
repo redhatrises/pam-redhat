@@ -8,6 +8,8 @@ without autoconf support.
 
 * pam_console: removed glib dependency, used hashtable implementation
   by Christopher Clark
+* pam_tally2: don't call fclose on already closed FILE
+* pam_tally2: support large uids
 
 0.99.4-2: Wed Apr 26 2006
 
