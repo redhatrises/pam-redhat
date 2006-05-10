@@ -35,6 +35,7 @@
 #include <mntent.h>
 #define NAMLEN(dirent) strlen((dirent)->d_name)
 
+#include "configfile.h"
 #include "chmod.h"
 #include "modechange.h"
 
@@ -195,7 +196,7 @@ match_files(GSList *files, const char *filename) {
     return -1;
 }
 
-STATIC int
+int
 chmod_files (const char *mode, uid_t user, gid_t group,
 	     char *single_file, GSList *filelist, GSList *constraints)
 {

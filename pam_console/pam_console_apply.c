@@ -4,14 +4,13 @@
 
 #include "config.h"
 #include <errno.h>
-#include <glib.h>
 #include <pwd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+#include <sys/param.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -19,9 +18,9 @@
 #include <glob.h>
 #include <locale.h>
 #define STATIC static
+#include "configfile.h"
 #include "chmod.h"
 #include "pam_console.h"
-#include "configfile.h"
 
 #include <security/_pam_macros.h>
 

@@ -10,7 +10,6 @@
 #include "configfile.tab.h"
 #include <stdio.h>
 #include <string.h>
-#include <glib.h>
 #include <syslog.h>
 
 #include "pam_console.h"
@@ -56,7 +55,7 @@ STATIC char *
 strip_slash(const char *s) {
   char *r, *t;
 
-  t = r = g_strdup(s);
+  t = r = strdup(s);
   while ((t = strchr(t, '\\')) != NULL) {
     if (t[1] == '#' || t[1] == '<' || t[1] == '>') {
       memmove(t, t+1, strlen(t));

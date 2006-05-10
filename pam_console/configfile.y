@@ -6,18 +6,21 @@
 #define YYSTYPE void *
 
 #include <errno.h>
-#include <glib.h>
 #include <grp.h>
 #include <limits.h>
 #include <regex.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <pwd.h>
 #include <chmod.h>
+#include <hashtable.h>
 
 #include <security/pam_modules.h>
 #include <security/pam_modutil.h>
+
+typedef struct hashtable GHashTable;
 
 static GHashTable *namespace = NULL;
 static GSList *configList = NULL;
@@ -32,6 +35,36 @@ do_yyerror(const char *format, ...);
 
 static void
 empty_class(class *c);
+
+static unsigned int
+str_hash(unsigned char *s)
+{
+        unsigned int hash = 5381;
+	int c;
+	                
+	while ((c = *s++))
+		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+	                                    
+	return hash;
+}
+
+static int
+str_equal(void *a, void *b)
+{
+	return strcmp(a, b) == 0;
+}
+
+static unsigned int
+ptr_hash(void *p)
+{
+	return (unsigned long)p >> 3;
+}
+
+static int
+ptr_equal(void *a, void *b)
+{
+	return a == b;
+}
 
 %}
 
@@ -56,12 +89,12 @@ classdef:
 		OBRACKET string CBEQUALS stringlist EOL {
 		  class *c;
 
-		  c = g_hash_table_lookup(namespace, $2);
+		  c = hashtable_search(namespace, $2);
 		  if (c) { 
 			empty_class(c);
 		  } else {
-			c = g_malloc(sizeof(class));
-			g_hash_table_insert(namespace, g_strdup($2), c);
+			c = malloc(sizeof(class));
+			hashtable_insert(namespace, strdup($2), c);
 		  }
 		  c->name = $2;
 		  c->list = $4;
@@ -69,7 +102,7 @@ classdef:
 	;
 
 config:		classlist STRING classlist optstring optstring EOL {
-		  config *conf = g_malloc(sizeof(config));
+		  config *conf = malloc(sizeof(config));
 		  conf->console_class = $1;
 		  conf->mode = $2;
 		  conf->device_class = $3;
@@ -102,7 +135,7 @@ config:		classlist STRING classlist optstring optstring EOL {
 	;
 
 classlist:	OBRACKET string CBRACKET {
-		  class *c = g_hash_table_lookup(namespace, $2);
+		  class *c = hashtable_search(namespace, $2);
 		  if(!c) {
 		    _pam_log(NULL, LOG_ERR, FALSE,
 			  "unknown class \"%s\" at line %d in %s\n",
@@ -112,7 +145,7 @@ classlist:	OBRACKET string CBRACKET {
 		  $$ = c;
 		}
 	|	string {
-		  class *c = g_malloc(sizeof(class));
+		  class *c = malloc(sizeof(class));
 		  c->name = $1;
 		  c->list = NULL;
 		  $$ = c;
@@ -146,7 +179,7 @@ parse_file(const char *name) {
     return;
   }
 
-  if (!namespace) namespace = g_hash_table_new(g_str_hash, g_str_equal);
+  if (!namespace) namespace = create_hashtable(128, (unsigned int (*)(void *))str_hash, str_equal);
 
   lex_set_filename(name);
   lex_file(infile);
@@ -181,8 +214,8 @@ check_console_name (const char *consolename) {
     _pam_log(NULL, LOG_DEBUG, TRUE, "check console %s", consolename);
     if (consoleNameCache != consolename) {
 	consoleNameCache = consolename;
-	if (consoleHash) g_hash_table_destroy(consoleHash);
-	consoleHash = g_hash_table_new(NULL, NULL);
+	if (consoleHash) hashtable_destroy(consoleHash, 0);
+	consoleHash = create_hashtable(128, ptr_hash, ptr_equal);
     }
     for (this_class = consoleClassList; this_class;
 	 this_class = this_class->next) {
@@ -190,13 +223,13 @@ check_console_name (const char *consolename) {
         if (c->list) {
 	    for (this_list = c->list; this_list; this_list = this_list->next) {
 		if (check_one_console_name(consolename, this_list->data)) {
-		    g_hash_table_insert(consoleHash, c, c);
+		    hashtable_insert(consoleHash, c, c);
 		    found = 1;
 		}
 	    }
 	} else {
 	    if (check_one_console_name(consolename, c->name)) {
-		g_hash_table_insert(consoleHash, c, c);
+		hashtable_insert(consoleHash, c, c);
 		found = 1;
 	    }
 	}
@@ -208,7 +241,7 @@ check_console_name (const char *consolename) {
     /* not found */
     _pam_log(NULL, LOG_INFO, TRUE, "did not find console %s", consolename);
     if (consoleHash) {
-	g_hash_table_destroy(consoleHash);
+	hashtable_destroy(consoleHash, 0);
 	consoleHash = NULL;
     }
     return 0;
@@ -232,7 +265,7 @@ set_permissions(const char *consolename, const char *username, GSList *files) {
 
     for (cl = configList; cl; cl = cl->next) {
 	c = cl->data;
-	if (g_hash_table_lookup(consoleHash, c->console_class)) {
+	if (hashtable_search(consoleHash, c->console_class)) {
     	    if (c->device_class->list)
 	        chmod_files(c->mode, pwd->pw_uid, -1, NULL, c->device_class->list, files);
 	    else
@@ -255,7 +288,7 @@ reset_permissions(const char *consolename, GSList *files) {
 
     for (cl = configList; cl; cl = cl->next) {
 	c = cl->data;
-	if (g_hash_table_lookup(consoleHash, c->console_class)) {
+	if (hashtable_search(consoleHash, c->console_class)) {
 	    pwd = getpwnam(c->revert_owner ? c->revert_owner : "root");
 	    if (pwd == NULL) {
 		_pam_log(NULL, LOG_ERR, FALSE, "getpwnam failed for %s",
@@ -296,7 +329,7 @@ do_yyerror(const char *format, ...) {
 
 static void
 empty_class(class *c) {
-  g_free(c->name);
+  free(c->name);
   c->name = NULL;
   g_slist_free(c->list);
   c->list = NULL;

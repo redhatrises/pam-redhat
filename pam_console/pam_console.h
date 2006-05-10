@@ -9,6 +9,13 @@
 
 #define LOCKFILE "console.lock"
 
+#ifndef FALSE
+#define FALSE 0
+#endif
+#ifndef TRUE
+#define TRUE (!FALSE)
+#endif
+
 void
 _pam_log(pam_handle_t *pamh, int err, int debug_p, const char *format, ...);
 

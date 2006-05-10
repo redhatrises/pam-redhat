@@ -2,10 +2,24 @@
  * This software may be used under the terms of the GNU General Public
  * License, available in the file COPYING accompanying this file.
  */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include <glib.h>
+#ifndef _CONFIGFILE_H
+#define _CONFIGFILE_H
 #define STATIC static
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+#ifndef TRUE
+#define TRUE (!FALSE)
+#endif
+
+/* GSList reimplementation */
+
+typedef struct GSList_s GSList;
+struct GSList_s {
+	void *data;
+	GSList *next;
+};
 
 typedef struct class_s class;
 struct class_s {
@@ -23,6 +37,15 @@ struct config_s {
 	char*	revert_group;
 };
 
+GSList *
+g_slist_prepend(GSList *l, void *d);
+
+GSList *
+g_slist_append(GSList *l, void *d);
+
+void
+g_slist_free(GSList *l);
+
 void
 parse_file(const char *name);
 
@@ -38,4 +61,4 @@ reset_permissions(const char *consolename, GSList *files);
 void *
 _do_malloc(size_t req);
 
-#endif /* _CONFIG_H */
+#endif /* _CONFIGFILE_H */

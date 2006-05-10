@@ -13,10 +13,6 @@ man_MANS = $(MAN5) $(MAN8)
 
 EXTRA_DIST = README $(man_MANS) $(CONFFILES) sed-static configfile.y configfile.l
 
-GLIB_CFLAGS = $(shell pkg-config --cflags glib-2.0)
-# this ugly $(shell...) hack overrides automake checks when LDADD is used
-GLIB_LIBS = $(shell echo '-Wl,-Bstatic') $(shell pkg-config '--libs' glib-2.0) $(shell echo '-Wl,-Bdynamic')
-
 LOCKDIR = /var/run/console
 LOCKMODE = 755
 
@@ -35,11 +31,7 @@ if HAVE_VERSIONING
 endif
 pam_console_la_LIBADD = -L$(top_builddir)/libpam -lpam
 
-# override extra dependencies otherwise we get GLIB_LIBS contents here
-pam_console_apply_DEPENDENCIES =
-# we can't use libtool (sorts linker options out of libraries)
-pam_console_apply_LDADD = -L$(top_builddir)/libpam/.libs -lpam $(GLIB_LIBS)
-pam_console_apply_LINK =  $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+pam_console_apply_LDADD = -L$(top_builddir)/libpam -lpam
 
 securelib_LTLIBRARIES = pam_console.la
 sbin_PROGRAMS = pam_console_apply
@@ -52,7 +44,8 @@ FLEX_OPTS = -Cr
 BISON_OPTS = -d
 
 pam_console_la_SOURCES = pam_console.c pam_console.h regerr.c handlers.c handlers.h
-pam_console_apply_SOURCES = pam_console_apply.c pam_console.h chmod.c modechange.c regerr.c configfile.c configfile.h
+pam_console_apply_SOURCES = pam_console_apply.c pam_console.h chmod.c modechange.c regerr.c \
+			 configfile.c configfile.h hashtable.c hashtable.h hashtable_private.h
 
 pam_console_la_CFLAGS = $(AM_CFLAGS)
 pam_console_apply_CFLAGS = $(AM_CFLAGS)
