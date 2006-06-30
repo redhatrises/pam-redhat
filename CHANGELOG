@@ -4,6 +4,13 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.99.6-1: Fri Jun 30 2006
+
+* pam_console: add /dev/adsp* to console.perms (#195856)
+* pam_console: add /dev/dvb/adapter*/* to console.perms (#195914)
+* pam_console_apply: don't access /var when called with -d (#191401)
+* pam_timestamp: don't compile hmactest
+
 0.99.5-1: Wed May 10 2006
 
 * pam_console: removed glib dependency, used hashtable implementation

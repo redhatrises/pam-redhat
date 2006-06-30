@@ -4,7 +4,7 @@
 <sound>=/dev/dsp* /dev/audio* /dev/midi* \
 	/dev/mixer* /dev/sequencer* \
 	/dev/sound/* /dev/beep \
-	/dev/snd/* 
+	/dev/snd/* /dev/adsp*
 <cdrom>=/dev/cdrom* /dev/cdroms/* /dev/cdwriter* /mnt/cdrom*
 <pilot>=/dev/pilot
 <jaz>=/mnt/jaz*
@@ -30,6 +30,7 @@
 <bluetooth>=/dev/rfcomm*
 <raw1394>=/dev/raw1394
 <irda>=/dev/ircomm*
+<dvb>=/dev/dvb/adapter*/*
 
 # permission definitions
 <console>  0660 <floppy>     0660 root.floppy
@@ -56,6 +57,7 @@
 <console>  0600 <bluetooth>  0600 root
 <console>  0600 <raw1394>    0600 root
 <console>  0600 <irda>       0600 root
+<console>  0600 <dvb>        0600 root
 
 <xconsole> 0600 /dev/console 0600 root.root
 <console>  0600 <dri>	     0600 root

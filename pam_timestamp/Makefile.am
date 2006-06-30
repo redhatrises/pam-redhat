@@ -6,7 +6,7 @@
 CLEANFILES = *~
 
 man_MANS = pam_timestamp.8 pam_timestamp_check.8
-EXTRA_DIST = README $(man_MANS)
+EXTRA_DIST = README $(man_MANS) hmactest.c
 
 securelibdir = $(SECUREDIR)
 secureconfdir = $(SCONFIGDIR)
@@ -34,7 +34,4 @@ pam_timestamp_check_LDFLAGS = -pie
 
 hmacfile_SOURCES = hmacfile.c hmacsha1.c sha1.c hmacsha1.h
 
-hmactest_SOURCES = hmactest.c
-hmactest_LDADD = -lcrypto
-
-noinst_PROGRAMS = hmacfile hmactest
+noinst_PROGRAMS = hmacfile 

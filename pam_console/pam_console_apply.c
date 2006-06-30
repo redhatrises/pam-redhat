@@ -139,8 +139,7 @@ main(int argc, char **argv)
 	else
 		parse_file(consoleperms);
 		
-        fd = open(consolelock, O_RDONLY);
-	if (fd != -1) {
+        if (sense != Reset && (fd=open(consolelock, O_RDONLY)) != -1) {
 		if (fstat (fd, &st)) {
 			_pam_log(NULL, LOG_ERR, FALSE,
 			       "\"impossible\" fstat error on %s", consolelock);
