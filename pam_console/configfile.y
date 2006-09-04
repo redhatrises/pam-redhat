@@ -293,13 +293,17 @@ reset_permissions(const char *consolename, GSList *files) {
 	    if (pwd == NULL) {
 		_pam_log(NULL, LOG_ERR, FALSE, "getpwnam failed for %s",
 			 c->revert_owner ? c->revert_owner : "root");
-		return -1;
+		pwd = getpwuid(0);
+		if (pwd == NULL)
+		    return -1;
 	    }
 	    grp = getgrnam(c->revert_group ? c->revert_group : "root");
 	    if (grp == NULL) {
                 _pam_log(NULL, LOG_ERR, FALSE, "getgrnam failed for %s",
                          c->revert_group ? c->revert_group : "root");
-                return -1;
+		grp = getgrgid(0);
+		if (grp == NULL)
+            	    return -1;
             }
 	    if (c->device_class->list)
 	        chmod_files(c->revert_mode ? c->revert_mode : "0600",

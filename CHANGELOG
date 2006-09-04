@@ -4,6 +4,14 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.99.6-2: Mon Sep 04 2006
+
+* pam_console: shouldn't call ainit in console.handlers anymore (#199561)
+* pam_console_apply: if nonexistent user or group configured as revert
+  user.group revert to uid 0 and gid 0 respectively
+* pam_timestamp_check: round the sleep to wake up at the start of
+  the wallclock second (#205068)
+
 0.99.6-1: Fri Jun 30 2006
 
 * pam_console: add /dev/adsp* to console.perms (#195856)

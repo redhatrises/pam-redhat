@@ -17,6 +17,3 @@
 console consoledevs tty[0-9][0-9]* vc/[0-9][0-9]* :[0-9]\.[0-9] :[0-9]
 /sbin/pam_console_apply lock logfail wait -t tty -s
 /sbin/pam_console_apply unlock logfail wait -r -t tty -s
-# initialize dmix for alsa sound
-/usr/bin/ainit lock user start
-/usr/bin/ainit unlock user stop

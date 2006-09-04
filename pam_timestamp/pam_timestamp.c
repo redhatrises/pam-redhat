@@ -54,6 +54,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <utmp.h>
 #include <syslog.h>
@@ -639,7 +640,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 #else /* PAM_TIMESTAMP_MAIN */
 
 #define USAGE "Usage: %s [[-k] | [-d]] [target user]\n"
-#define CHECK_INTERVAL 5
+#define CHECK_INTERVAL 7
 
 int
 main(int argc, char **argv)
@@ -769,13 +770,18 @@ main(int argc, char **argv)
 		}
 
 		if (dflag > 0) {
+			struct timeval now;
 			/* Send the would-be-returned value to our parent. */
 			signal(SIGPIPE, SIG_DFL);
 			fprintf(stdout, "%d\n", retval);
 			fflush(stdout);
 			/* Wait. */
+			gettimeofday(&now, NULL);
 			tv.tv_sec = CHECK_INTERVAL;
-			tv.tv_usec = 0;
+			/* round the sleep time to get woken up on a whole second */
+			tv.tv_usec = 1000000 - now.tv_usec;
+			if (now.tv_usec < 500000)
+				tv.tv_sec--;
 			FD_ZERO(&write_fds);
 			FD_SET(STDOUT_FILENO, &write_fds);
 			select(STDOUT_FILENO + 1,
