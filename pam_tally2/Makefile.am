@@ -12,9 +12,9 @@ secureconfdir = $(SCONFIGDIR)
 noinst_HEADERS = tallylog.h
 
 AM_CFLAGS = -I$(top_srcdir)/libpam/include -I$(top_srcdir)/libpamc/include
-AM_LDFLAGS = -no-undefined -L$(top_builddir)/libpam -lpam $(LIBAUDIT)
+AM_LDFLAGS = -L$(top_builddir)/libpam -lpam $(LIBAUDIT)
 
-pam_tally2_la_LDFLAGS = -avoid-version -module
+pam_tally2_la_LDFLAGS = -no-undefined -avoid-version -module $(AM_LDFLAGS)
 if HAVE_VERSIONING
   pam_tally2_la_LDFLAGS += -Wl,--version-script=$(srcdir)/../modules.map
 endif

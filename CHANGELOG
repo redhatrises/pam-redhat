@@ -8,6 +8,7 @@ without autoconf support.
 
 * removed pam_stack from tarball as it is obsolete and pam_loginuid as well
   because it was included upstream
+* pam_tally2, pam_timestamp: fixed automake makefiles for new am version
 
 0.99.6-2: Mon Sep 04 2006
 
