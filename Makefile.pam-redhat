@@ -1,8 +1,8 @@
-VERSION=0.99.6
-RELEASE=2
+VERSION=0.99.7
+RELEASE=1
 CVSTAG=pam-redhat-$(shell echo $(VERSION) | sed s,\\.,-,g)-$(RELEASE)
 CVS_ROOT=$(shell cat CVS/Root)
-MODULES=pam_chroot pam_console pam_postgresok pam_rps pam_stack pam_timestamp pam_loginuid pam_tally2
+MODULES=pam_chroot pam_console pam_postgresok pam_rps pam_timestamp pam_tally2
 
 nothing:
 

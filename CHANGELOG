@@ -4,6 +4,11 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.99.7-1: Fri Jan 19 2007
+
+* removed pam_stack from tarball as it is obsolete and pam_loginuid as well
+  because it was included upstream
+
 0.99.6-2: Mon Sep 04 2006
 
 * pam_console: shouldn't call ainit in console.handlers anymore (#199561)
