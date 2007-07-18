@@ -1,6 +1,6 @@
 VERSION=0.77
-RELEASE=5.1
-CVSTAG=pam-redhat-$(shell echo $(VERSION) | sed s,\\.,-,g)-$(RELEASE)
+RELEASE=5
+CVSTAG=pam-redhat-$(shell echo $(VERSION) | sed s,\\.,-,g)-$(shell echo $(RELEASE) | sed s,\\.,-,g)
 CVS_ROOT=$(shell cat CVS/Root)
 
 nothing:
