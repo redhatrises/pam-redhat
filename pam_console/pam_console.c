@@ -19,7 +19,7 @@
  *
  * /var/run/console/<username> is used for reference counting
  * and to make console authentication easy -- if it exists, then
- * <username> has console access.
+ * <username> is logged on console.
  *
  * A system startup script should remove /var/run/console/console.lock
  * and everything in /var/run/console/
@@ -560,7 +560,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
    */
     int fd;
     int count = 0;
-    int err;
+    int err = PAM_SUCCESS;
     int delete_consolelock = 0;
     const char *username = NULL, *user_prompt;
     char *lockfile = NULL;
@@ -605,7 +605,8 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		_pam_log(pamh, LOG_ERR, FALSE,
 			"\"impossible\" fstat error on %s", consolelock);
 		close(fd);
-		err = PAM_SESSION_ERR; goto return_error;
+		err = PAM_SESSION_ERR;
+		goto decrement;
 	    }
 	    consoleuser = _do_malloc(st.st_size+1);
 	    if (st.st_size) {
@@ -614,7 +615,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 			    "\"impossible\" read error on %s", consolelock);
 		    err = PAM_SESSION_ERR; 
 		    close(fd);
-		    goto return_error;
+		    goto decrement;
 		}
 		consoleuser[st.st_size] = '\0';
 	    }
@@ -627,23 +628,19 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		 */
 	 	console_run_handlers(pamh, FALSE, username, tty);
 	    }
-	} else {
-	    /* didn't open file */
-	    err = PAM_SESSION_ERR; 
-	    goto return_error;
 	}
     }
 
+decrement:
     count = use_count(pamh, lockfile, -1, 1);
     if (count < 1 && delete_consolelock) {
 	if (unlink(consolelock)) {
 	    _pam_log(pamh, LOG_ERR, FALSE,
 		     "\"impossible\" unlink error on %s", consolelock);
-	    err = PAM_SESSION_ERR; goto return_error;
+	    err = PAM_SESSION_ERR;
 	}
     }
 
-    err = PAM_SUCCESS;
 return_error:
     if (lockfile) free(lockfile);
     if (consoleuser) free (consoleuser);

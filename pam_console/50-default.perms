@@ -31,6 +31,7 @@
 <raw1394>=/dev/raw1394
 <irda>=/dev/ircomm*
 <dvb>=/dev/dvb/adapter*/*
+<firewire>=/dev/iidc* /dev/vendorfw* /dev/avc*
 
 # permission definitions
 <console>  0660 <floppy>     0660 root.floppy
@@ -58,6 +59,7 @@
 <console>  0600 <raw1394>    0600 root
 <console>  0600 <irda>       0600 root
 <console>  0600 <dvb>        0600 root
+<console>  0600 <firewire>   0600 root
 
 <xconsole> 0600 /dev/console 0600 root.root
 <console>  0600 <dri>	     0600 root

@@ -4,6 +4,11 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.99.8-1: Mon Jul 23 2007
+* pam_console: decrement console use count properly - CVE-2007-1716 
+* pam_console: add more displays to console class
+* pam_console: add some firewire devices to default.perms (#240770)
+
 0.99.7-1: Fri Jan 19 2007
 
 * removed pam_stack from tarball as it is obsolete and pam_loginuid as well
