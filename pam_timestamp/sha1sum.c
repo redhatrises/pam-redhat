@@ -36,10 +36,6 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
-#ident "$Id$"
-
-#include "../config.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>

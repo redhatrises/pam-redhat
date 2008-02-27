@@ -1,7 +1,6 @@
 /*
  * pam_tally.c
  *
- * $Id$
  */
 
 

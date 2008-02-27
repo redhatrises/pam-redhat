@@ -1,7 +1,0 @@
-securityconfdir=$(sysconfdir)/security
-moduledir=@MODULEDIR@
-AM_CFLAGS =
-AM_LFLAGS =
-AM_YFLAGS = -d
-AM_LDFLAGS =
-MODULE_LDFLAGS = -module -avoid-version -export-symbols-regex 'pam_sm_.*'

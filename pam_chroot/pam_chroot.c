@@ -1,13 +1,14 @@
 /*
  * Linux-PAM session chroot()er
  *
- * $Id$
+ * $Id: pam_chroot.c,v 1.8.4.1 2005/12/15 12:16:13 tmraz Exp $
  */
 
 #include "config.h"
 
 #define	PAM_SM_SESSION
 #include <security/pam_modules.h>
+#include <security/pam_ext.h>
 
 #include <syslog.h>
 #include <string.h>
