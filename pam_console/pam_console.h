@@ -16,7 +16,7 @@
 #define TRUE (!FALSE)
 #endif
 
-void
+void PAM_FORMAT((printf, 4, 5)) PAM_NONNULL((4))
 _pam_log(pam_handle_t *pamh, int err, int debug_p, const char *format, ...);
 
 void

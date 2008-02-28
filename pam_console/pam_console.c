@@ -307,7 +307,7 @@ top:
 	     */
 	    _pam_log(pamh, LOG_ERR, FALSE,
 		    "ignoring stale lock on file %s by process %d",
-		    lockinfo.l_pid, filename);
+		    filename, lockinfo.l_pid);
 	}
 
 	/* it is possible at this point that the file has been removed
@@ -378,7 +378,8 @@ return_error:
 }
 
 PAM_EXTERN int
-pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
+pam_sm_authenticate(pam_handle_t *pamh, int flags UNUSED,
+		    int argc, const char **argv)
 {
   /* getuid() must return an id that maps to a username as a filename in
    * /var/run/console/
@@ -471,13 +472,15 @@ error_return:
 }
 
 PAM_EXTERN int
-pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
+pam_sm_setcred(pam_handle_t *pamh UNUSED, int flags UNUSED,
+	       int argc UNUSED, const char **argv UNUSED)
 {
     return PAM_SUCCESS;
 }
 
 PAM_EXTERN int
-pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
+pam_sm_open_session(pam_handle_t *pamh, int flags UNUSED,
+		    int argc, const char **argv)
 {
   /* Create /var/run/console/console.lock if it does not exist
    * Create /var/run/console/<username> if it does not exist
@@ -547,7 +550,8 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 }
 
 PAM_EXTERN int
-pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
+pam_sm_close_session(pam_handle_t *pamh, int flags UNUSED,
+		     int argc, const char **argv)
 {
   /* Get /var/run/console/<username> use count, leave it locked
    * If use count is now 1:
