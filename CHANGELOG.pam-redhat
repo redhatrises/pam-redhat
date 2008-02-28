@@ -5,6 +5,9 @@ This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
 * pam_chroot: cleanups by Dmitry V. Levin
+* pam_console: fix format error on syslog call - patch by Dmitry V. Levin
+* pam_console_apply: fix glob return value check and syslogging - patch
+  by Dmitry V. Levin
 
 0.99.8-1: Mon Jul 23 2007
 * pam_console: decrement console use count properly - CVE-2007-1716 
