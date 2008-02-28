@@ -9,6 +9,7 @@ without autoconf support.
 * pam_console_apply: fix glob return value check and syslogging - patch
   by Dmitry V. Levin
 * pam_console: most devices are handled by hal now
+* pam_console: allow printing to multifunction devices
 
 0.99.8-1: Mon Jul 23 2007
 * pam_console: decrement console use count properly - CVE-2007-1716 

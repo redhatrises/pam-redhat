@@ -16,7 +16,7 @@
 
 # permission definitions
 <console>  0600 <pilot>      0660 root.uucp
-<console>  0600 <scanner>    0600 root
+<console>  0660 <scanner>    0660 root.lp
 <console>  0600 <fb>         0600 root
 <console>  0600 <kbd>        0600 root
 <console>  0600 <joystick>   0600 root
