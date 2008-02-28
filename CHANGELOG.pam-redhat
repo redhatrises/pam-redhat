@@ -4,6 +4,7 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.99.9-1: Thu Feb 29 2008
 * pam_chroot: cleanups by Dmitry V. Levin
 * pam_console: fix format error on syslog call - patch by Dmitry V. Levin
 * pam_console_apply: fix glob return value check and syslogging - patch
