@@ -64,7 +64,7 @@ hashtable_expand(struct hashtable *h)
     struct entry **newtable;
     struct entry *e;
     struct entry **pE;
-    unsigned int newsize, i, index;
+    unsigned int newsize, i, idx;
     /* Check we're not hitting max capacity */
     if (h->primeindex == (prime_table_length - 1)) return 0;
     newsize = primes[++(h->primeindex)];
@@ -78,9 +78,9 @@ hashtable_expand(struct hashtable *h)
         for (i = 0; i < h->tablelength; i++) {
             while (NULL != (e = h->table[i])) {
                 h->table[i] = e->next;
-                index = indexFor(newsize,e->h);
-                e->next = newtable[index];
-                newtable[index] = e;
+                idx = indexFor(newsize,e->h);
+                e->next = newtable[idx];
+                newtable[idx] = e;
             }
         }
         free(h->table);
@@ -96,16 +96,16 @@ hashtable_expand(struct hashtable *h)
         memset(newtable[h->tablelength], 0, newsize - h->tablelength);
         for (i = 0; i < h->tablelength; i++) {
             for (pE = &(newtable[i]), e = *pE; e != NULL; e = *pE) {
-                index = indexFor(newsize,e->h);
-                if (index == i)
+                idx = indexFor(newsize,e->h);
+                if (idx == i)
                 {
                     pE = &(e->next);
                 }
                 else
                 {
                     *pE = e->next;
-                    e->next = newtable[index];
-                    newtable[index] = e;
+                    e->next = newtable[idx];
+                    newtable[idx] = e;
                 }
             }
         }
@@ -127,7 +127,7 @@ int
 hashtable_insert(struct hashtable *h, void *k, void *v)
 {
     /* This method allows duplicate keys - but they shouldn't be used */
-    unsigned int index;
+    unsigned int idx;
     struct entry *e;
     if (++(h->entrycount) > h->loadlimit)
     {
@@ -140,11 +140,11 @@ hashtable_insert(struct hashtable *h, void *k, void *v)
     e = (struct entry *)malloc(sizeof(struct entry));
     if (NULL == e) { --(h->entrycount); return 0; } /*oom*/
     e->h = hash(h,k);
-    index = indexFor(h->tablelength,e->h);
+    idx = indexFor(h->tablelength,e->h);
     e->k = k;
     e->v = v;
-    e->next = h->table[index];
-    h->table[index] = e;
+    e->next = h->table[idx];
+    h->table[idx] = e;
     return -1;
 }
 
@@ -153,10 +153,10 @@ void * /* returns value associated with key */
 hashtable_search(struct hashtable *h, void *k)
 {
     struct entry *e;
-    unsigned int hashvalue, index;
+    unsigned int hashvalue, idx;
     hashvalue = hash(h,k);
-    index = indexFor(h->tablelength,hashvalue);
-    e = h->table[index];
+    idx = indexFor(h->tablelength,hashvalue);
+    e = h->table[idx];
     while (NULL != e)
     {
         /* Check hash value to short circuit heavier comparison */
@@ -176,11 +176,11 @@ hashtable_remove(struct hashtable *h, void *k, int free_key)
     struct entry *e;
     struct entry **pE;
     void *v;
-    unsigned int hashvalue, index;
+    unsigned int hashvalue, idx;
 
     hashvalue = hash(h,k);
-    index = indexFor(h->tablelength,hash(h,k));
-    pE = &(h->table[index]);
+    idx = indexFor(h->tablelength,hash(h,k));
+    pE = &(h->table[idx]);
     e = *pE;
     while (NULL != e)
     {
