@@ -23,7 +23,7 @@
 
 #define	CONFIG	"/etc/security/chroot.conf"
 
-PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
+PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags UNUSED,
 				   int argc, const char **argv)
 {
 	int ret = PAM_SESSION_ERR;
@@ -52,8 +52,7 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 
 	conf = fopen(CONFIG, "r");
 	if(conf == NULL) {
-		pam_syslog(pamh, LOG_ERR, "can't open config file \"" CONFIG "\": %s",
-				strerror(errno));
+		pam_syslog(pamh, LOG_ERR, "can't open config file \"" CONFIG "\": %m");
 		return ret;
 	}
 
@@ -104,8 +103,8 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 			struct stat st;
 
 			if (stat(dir, &st) == -1) {
-				pam_syslog(pamh, LOG_ERR, "stat(%s) failed: %s",
-						dir, strerror(errno));
+				pam_syslog(pamh, LOG_ERR, "stat(%s) failed: %m",
+						dir);
 				ret = onerr;
 			} else
 			/* Catch the most common misuse */
@@ -116,8 +115,8 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 				ret = onerr;
 			} else
 			if(chdir(dir) == -1) {
-				pam_syslog(pamh, LOG_ERR, "chdir(%s) failed: %s",
-						dir, strerror(errno));
+				pam_syslog(pamh, LOG_ERR, "chdir(%s) failed: %m",
+						dir);
 				ret = onerr;
 			} else {
 				if(debug) {
@@ -125,8 +124,8 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 							dir);
 				}
 				if(chroot(dir) == -1) {
-					pam_syslog(pamh, LOG_ERR, "chroot(%s) failed: %s",
-							dir, strerror(errno));
+					pam_syslog(pamh, LOG_ERR, "chroot(%s) failed: %m",
+							dir);
 					ret = onerr;
 				} else {
 					pam_syslog(pamh, LOG_ERR, "chroot(%s) succeeded",
@@ -142,8 +141,8 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
 	return ret;
 }
 
-PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh, int flags,
-				    int argc, const char **argv)
+PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh UNUSED, int flags UNUSED,
+				    int argc UNUSED, const char **argv UNUSED)
 {
 	return PAM_SUCCESS;
 }

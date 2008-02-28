@@ -4,6 +4,8 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+* pam_chroot: cleanups by Dmitry V. Levin
+
 0.99.8-1: Mon Jul 23 2007
 * pam_console: decrement console use count properly - CVE-2007-1716 
 * pam_console: add more displays to console class
