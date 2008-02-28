@@ -41,21 +41,13 @@ _pam_log(pam_handle_t *pamh, int err, int debug_p, const char *format, ...)
 	if (debug_p && !debug) return;
 	va_start(args, format);
 	if (syslogging) {
-		openlog("pam_console_apply", LOG_CONS|LOG_PID, LOG_AUTHPRIV);
 		vsyslog(err, format, args);
-		closelog();
 	}
 	else {
 		vfprintf(stderr, format, args);
 		fprintf(stderr, "\n");
 	}
 	va_end(args);
-}
-
-static int
-pf_glob_errorfn(const char *epath, int eerrno)
-{
-	return 0;
 }
 
 static void
@@ -73,11 +65,10 @@ parse_files(void)
 	on system locale */
 	oldlocale = setlocale(LC_COLLATE, "C");
 
-	rc = glob(PERMS_GLOB, GLOB_NOCHECK, pf_glob_errorfn, &globbuf);
+	rc = glob(PERMS_GLOB, GLOB_NOCHECK, NULL, &globbuf);
 	setlocale(LC_COLLATE, oldlocale);
-	if (rc == GLOB_NOSPACE) {
+	if (rc)
 		return;
-	}
 
 	for (i = 0; globbuf.gl_pathv[i] != NULL; i++) {
 		parse_file(globbuf.gl_pathv[i]);
@@ -129,6 +120,9 @@ main(int argc, char **argv)
 				  exit(1);
 		}
 	}
+
+	if (syslogging)
+		openlog("pam_console_apply", LOG_CONS|LOG_PID, LOG_AUTH);
 
 	for (i = argc-1; i >= optind;  i--) {
 		files = g_slist_prepend(files, argv[i]);
