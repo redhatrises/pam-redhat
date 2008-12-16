@@ -1,4 +1,4 @@
-VERSION=0.99.9
+VERSION=0.99.10
 RELEASE=1
 HGTAG=pam-redhat-$(shell echo $(VERSION) | sed s,\\.,-,g)-$(RELEASE)
 CVS_ROOT=$(shell cat CVS/Root)
