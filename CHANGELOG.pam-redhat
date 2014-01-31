@@ -4,6 +4,11 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+0.99.11: Fri Jan 31 2014
+* pam_chroot: License same as Linux-PAM as the code is based on it
+* pam_postgresok: License same as Linux-PAM as the code is based on it
+* pam_console: longstanding fixes that we carried out as patches
+
 0.99.10-1: Tue Dec 16 2008
 * pam_tally2: upstreamed and removed
 * pam_timestamp: upstreamed and removed
