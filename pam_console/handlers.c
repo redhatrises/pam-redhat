@@ -172,13 +172,13 @@ call_exec(struct console_handler *handler, int nparams, const char *user, const 
         const char *flagptr;
         const char **argv;
         int i = 0;
-        argv = malloc(sizeof(*argv)*nparams+2);
-        
+        argv = malloc(sizeof(*argv)*(nparams+2));
+
         if (argv == NULL)
                 return;
-        
+
         argv[i++] = handler->executable;
-        
+
         for (flagptr = handler->flags; *flagptr != '\0'; flagptr += strlen(flagptr)+1) {
                 switch (testflag(flagptr)) {
                 case HF_LOGFAIL:
@@ -231,7 +231,7 @@ execute_handler(pam_handle_t *pamh, struct console_handler *handler, const char 
         }
 
 	sighandler = signal(SIGCHLD, SIG_DFL);
-        
+
         child = fork();
         switch (child) {
         case -1:
@@ -246,30 +246,32 @@ execute_handler(pam_handle_t *pamh, struct console_handler *handler, const char 
                 if (!wait_exit) {
 			switch(fork()) {
 			case 0:
-				exit(0);
-			case -1:
-				exit(255);
-			default:
-                    		if(setsid() == -1) {
-                            		exit(255);
+				if(setsid() == -1) {
+					_exit(255);
 				}
+				break;
+			case -1:
+				_exit(255);
+			default:
+				_exit(0);
 			}
                 }
                 if (set_uid) {
                         struct passwd *pw;
                         pw = getpwnam(user);
                         if (pw == NULL)
-                                exit(255);
+                                _exit(255);
                         if (setgid(pw->pw_gid) == -1 ||
+                            setgroups(0, NULL) == -1 ||
                             setuid(pw->pw_uid) == -1)
-                                exit(255);
+                                _exit(255);
                 }
                 call_exec(handler, nparams, user, tty);
-                exit(255);
+                _exit(255);
         default:
                 break;
         }
-        
+
         waitpid(child, &rv, 0);
 
 	if (sighandler != SIG_ERR)
