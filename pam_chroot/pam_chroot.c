@@ -1,7 +1,7 @@
 /*
  * Linux-PAM session chroot()er
  *
- * $Id: pam_chroot.c,v 1.8.4.1 2005/12/15 12:16:13 tmraz Exp $
+ * Copyright (c) Red Hat, Inc., 2000, 2014
  */
 
 #include "config.h"

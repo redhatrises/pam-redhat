@@ -1,6 +1,7 @@
 /* pam_postgresok module */
 
 /*
+ * Copyright (c) Red Hat, Inc. 2003, 2014
  * Written by Fernando Nasser <fnasser@redhat.com> 2003/4/28
  * Based on the pam_rootok module
  * written by Andrew Morgan <morgan@linux.kernel.org> 1996/3/11
