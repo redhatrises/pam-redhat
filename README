@@ -1,0 +1,11 @@
+pam-redhat
+==========
+
+PAM modules created and developed primarily for use in Fedora
+and Red Hat Enterprise Linux distributions. Because of their
+limited use they are not included into the upstream Linux PAM
+sources.
+
+The modules are built inside the build tree of the upstream
+Linux PAM modules. Unfortunately this means that the modules
+cannot contain any strings which should be localized.
