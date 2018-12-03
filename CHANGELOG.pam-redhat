@@ -4,6 +4,9 @@ Changelog of pam-redhat modules
 This changelog describes only changes after branching of pam-redhat modules
 without autoconf support.
 
+1.0.0: Mon Dec 3 2018
+* pam_faillock: added
+
 0.99.11: Fri Jan 31 2014
 * pam_chroot: License same as Linux-PAM as the code is based on it
 * pam_postgresok: License same as Linux-PAM as the code is based on it
