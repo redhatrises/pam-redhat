@@ -65,7 +65,7 @@ parse_files(void)
 	on system locale */
 	oldlocale = setlocale(LC_COLLATE, "C");
 
-	rc = glob(PERMS_GLOB, GLOB_NOCHECK, NULL, &globbuf);
+	rc = glob(PERMS_GLOB, 0, NULL, &globbuf);
 	setlocale(LC_COLLATE, oldlocale);
 	if (rc)
 		return;

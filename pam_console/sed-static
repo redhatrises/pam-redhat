@@ -13,6 +13,7 @@ sed '
 /^YY_BUFFER_STATE yy_scan_buffer/s/^/STATIC /
 /^YY_BUFFER_STATE yy_scan_string/s/^/STATIC /
 /^void yy_switch_to_buffer/s/^/STATIC /
+/^extern int yylex/s/^extern /STATIC /
 /define YY_DECL int yylex/s/YY_DECL /YY_DECL STATIC /
 /^int yyparse/s/^/STATIC /
 /^void yyrestart/s/^/STATIC /

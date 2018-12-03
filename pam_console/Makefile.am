@@ -33,12 +33,13 @@ pam_console_la_LIBADD = -L$(top_builddir)/libpam -lpam
 
 pam_console_apply_LDADD = -L$(top_builddir)/libpam -lpam
 
+pam_console_apply_LDFLAGS = -Wl,-z,now @PIE_LDFLAGS@
+
 securelib_LTLIBRARIES = pam_console.la
 sbin_PROGRAMS = pam_console_apply
 
 
 secureconf_DATA = console.perms console.handlers
-permsd_DATA = 50-default.perms
 
 FLEX_OPTS = -Cr
 BISON_OPTS = -d
@@ -48,7 +49,7 @@ pam_console_apply_SOURCES = pam_console_apply.c pam_console.h chmod.c modechange
 			 configfile.c configfile.h hashtable.c hashtable.h hashtable_private.h
 
 pam_console_la_CFLAGS = $(AM_CFLAGS)
-pam_console_apply_CFLAGS = $(AM_CFLAGS)
+pam_console_apply_CFLAGS = $(AM_CFLAGS) @PIE_CFLAGS@
 
 configfile.tab.c: configfile.y
 	$(YACC) $(BISON_OPTS) -o $@ -p _pc_yy $<
@@ -62,4 +63,5 @@ configfile.c: configfile.tab.c configfile.lex.c
 
 install-data-local:
 	mkdir -p $(DESTDIR)$(secureconfdir)/console.apps
+	mkdir -p $(DESTDIR)$(permsddir)
 	mkdir -m $(LOCKMODE) -p -p $(DESTDIR)$(LOCKDIR)
