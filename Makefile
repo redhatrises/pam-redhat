@@ -1,17 +1,15 @@
-VERSION=0.99.11
-RELEASE=1
-HGTAG=pam-redhat-$(shell echo $(VERSION) | sed s,\\.,-,g)-$(RELEASE)
-CVS_ROOT=$(shell cat CVS/Root)
+VERSION=1.0.0
+TAG=pam-redhat-$(VERSION)
 
 nothing:
 
 tag:
-	@hg tag $(HGTAG)
+	git tag $(TAG)
 
 force-tag:
-	hg tag --force $(HGTAG)
+	git tag --force $(TAG)
 
-archive:
-	@rm -f pam-redhat-$(VERSION)-$(RELEASE).tar.bz2 
-	hg archive -r $(HGTAG) -t tbz2 -X Makefile pam-redhat-$(VERSION)-$(RELEASE).tar.bz2
-	@echo "The archive is in pam-redhat-$(VERSION)-$(RELEASE).tar.bz2" 
+dist:
+	@rm -f $(TAG).tar.bz2 
+	git archive --format=tar --prefix=$(TAG)/ $(TAG) | bzip2 > $(TAG).tar.bz2
+	@echo "The archive is in $(TAG).tar.bz2" 
