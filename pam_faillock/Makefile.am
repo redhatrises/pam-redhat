@@ -31,6 +31,8 @@ endif
 faillock_LDFLAGS = -Wl,-z,now @PIE_LDFLAGS@
 faillock_LDADD = -L$(top_builddir)/libpam -lpam $(LIBAUDIT)
 
+secureconf_DATA = faillock.conf
+
 securelib_LTLIBRARIES = pam_faillock.la
 sbin_PROGRAMS = faillock
 
