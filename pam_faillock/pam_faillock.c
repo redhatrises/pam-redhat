@@ -44,6 +44,7 @@
 #include <time.h>
 #include <pwd.h>
 #include <syslog.h>
+#include <ctype.h>
 
 #ifdef HAVE_LIBAUDIT
 #include <libaudit.h>
@@ -69,6 +70,9 @@
 #define FAILLOCK_FLAG_UNLOCKED		0x10
 
 #define MAX_TIME_INTERVAL 604800 /* 7 days */
+#define FAILLOCK_CONF_MAX_LINELEN 1023
+#define FAILLOCK_ERROR_CONF_OPEN -3
+#define FAILLOCK_ERROR_CONF_MALFORMED -4
 
 struct options {
 	unsigned int action;
@@ -78,6 +82,7 @@ struct options {
 	unsigned int unlock_time;
 	unsigned int root_unlock_time;
 	const char *dir;
+	const char *conf;
 	const char *user;
 	const char *admin_group;
 	int failures;
@@ -87,21 +92,35 @@ struct options {
 	uint64_t now;
 };
 
+int read_config_file(
+	pam_handle_t *pamh,
+	struct options *opts,
+	const char *cfgfile
+);
+
+void set_conf_opt(
+	pam_handle_t *pamh,
+	struct options *opts,
+	const char *name,
+	const char *value
+);
+
 static void
 args_parse(pam_handle_t *pamh, int argc, const char **argv,
 		int flags, struct options *opts)
 {
 	int i;
+	int rv;
 	memset(opts, 0, sizeof(*opts));
 
 	opts->dir = FAILLOCK_DEFAULT_TALLYDIR;
+	opts->conf = FAILLOCK_DEFAULT_CONF;
 	opts->deny = 3;
 	opts->fail_interval = 900;
 	opts->unlock_time = 600;
 	opts->root_unlock_time = MAX_TIME_INTERVAL+1;
 
 	for (i = 0; i < argc; ++i) {
-
 		if (strncmp(argv[i], "dir=", 4) == 0) {
 			if (argv[i][4] != '/') {
 				pam_syslog(pamh, LOG_ERR,
@@ -184,10 +203,171 @@ args_parse(pam_handle_t *pamh, int argc, const char **argv,
 		}
 	}
 
+	if ((rv=read_config_file(pamh, opts, opts->conf)) != PAM_SUCCESS) {
+		pam_syslog(pamh, LOG_ERR,
+					"Error opening conf file. Using defaults.");
+	}
+
 	if (opts->root_unlock_time == MAX_TIME_INTERVAL+1)
 		opts->root_unlock_time = opts->unlock_time;
 	if (flags & PAM_SILENT)
 		opts->flags |= FAILLOCK_FLAG_SILENT;
+}
+
+/* parse a single configuration file */
+int
+read_config_file(pam_handle_t *pamh, struct options *opts, const char *cfgfile)
+{
+	FILE *f;
+	char linebuf[FAILLOCK_CONF_MAX_LINELEN+1];
+
+	f = fopen(cfgfile, "r");
+	if (f == NULL) {
+		/* ignore non-existent default config file */
+		if (errno == ENOENT && strcmp(cfgfile, FAILLOCK_DEFAULT_CONF) == 0)
+			return 0;
+		return FAILLOCK_ERROR_CONF_OPEN;
+	}
+
+	while (fgets(linebuf, sizeof(linebuf), f) != NULL) {
+		size_t len;
+		char *ptr;
+		char *name;
+		int eq;
+
+		len = strlen(linebuf);
+		/* len cannot be 0 unless there is a bug in fgets */
+		if (len && linebuf[len - 1] != '\n' && !feof(f)) {
+			(void) fclose(f);
+			return FAILLOCK_ERROR_CONF_MALFORMED;
+		}
+
+		if ((ptr=strchr(linebuf, '#')) != NULL) {
+			*ptr = '\0';
+		} else {
+			ptr = linebuf + len;
+		}
+
+		/* drop terminating whitespace including the \n */
+		while (ptr > linebuf) {
+			if (!isspace(*(ptr-1))) {
+				*ptr = '\0';
+				break;
+			}
+			--ptr;
+		}
+
+		/* skip initial whitespace */
+		for (ptr = linebuf; isspace(*ptr); ptr++);
+		if (*ptr == '\0')
+			continue;
+
+		/* grab the key name */
+		eq = 0;
+		name = ptr;
+		while (*ptr != '\0') {
+			if (isspace(*ptr) || *ptr == '=') {
+				eq = *ptr == '=';
+				*ptr = '\0';
+				++ptr;
+				break;
+			}
+			++ptr;
+		}
+
+		/* grab the key value */
+		while (*ptr != '\0') {
+			if (*ptr != '=' || eq) {
+				if (!isspace(*ptr)) {
+					break;
+				}
+			} else {
+				eq = 1;
+			}
+			++ptr;
+		}
+
+		/* set the key:value pair on opts */
+		set_conf_opt(pamh, opts, name, ptr);
+	}
+
+	(void)fclose(f);
+	return PAM_SUCCESS;
+}
+
+void set_conf_opt(pam_handle_t *pamh, struct options *opts, const char *name, const char *value)
+{
+	if (strncmp(name, "dir", 3) == 0) {
+		if (value[0] != '/') {
+			pam_syslog(pamh, LOG_ERR,
+				"Tally directory is not absolute path (%s); keeping default", value);
+		} else {
+			opts->dir = value;
+		}
+	}
+	else if (strncmp(name, "deny", 4) == 0) {
+		if (sscanf(value, "%hu", &opts->deny) != 1) {
+			pam_syslog(pamh, LOG_ERR,
+				"Bad number supplied for deny argument");
+		}
+	}
+	else if (strncmp(name, "fail_interval", 13) == 0) {
+		unsigned int temp;
+		if (sscanf(value, "%u", &temp) != 1 ||
+			temp > MAX_TIME_INTERVAL) {
+			pam_syslog(pamh, LOG_ERR,
+				"Bad number supplied for fail_interval argument");
+		} else {
+			opts->fail_interval = temp;
+		}
+	}
+	else if (strncmp(name, "unlock_time", 11) == 0) {
+		unsigned int temp;
+
+		if (strcmp(value, "never") == 0) {
+			opts->unlock_time = 0;
+		}
+		else if (sscanf(value, "%u", &temp) != 1 ||
+			temp > MAX_TIME_INTERVAL) {
+			pam_syslog(pamh, LOG_ERR,
+				"Bad number supplied for unlock_time argument");
+		}
+		else {
+			opts->unlock_time = temp;
+		}
+	}
+	else if (strncmp(name, "root_unlock_time", 16) == 0) {
+		unsigned int temp;
+
+		if (strcmp(value, "never") == 0) {
+			opts->root_unlock_time = 0;
+		}
+		else if (sscanf(value, "%u", &temp) != 1 ||
+			temp > MAX_TIME_INTERVAL) {
+			pam_syslog(pamh, LOG_ERR,
+				"Bad number supplied for root_unlock_time argument");
+		} else {
+			opts->root_unlock_time = temp;
+		}
+	}
+	else if (strncmp(name, "admin_group", 11) == 0) {
+		opts->admin_group = value;
+	}
+	else if (strcmp(name, "even_deny_root") == 0) {
+		opts->flags |= FAILLOCK_FLAG_DENY_ROOT;
+	}
+	else if (strcmp(name, "audit") == 0) {
+		opts->flags |= FAILLOCK_FLAG_AUDIT;
+	}
+	else if (strcmp(name, "silent") == 0) {
+		opts->flags |= FAILLOCK_FLAG_SILENT;
+	}
+	else if (strcmp(name, "no_log_info") == 0) {
+		opts->flags |= FAILLOCK_FLAG_NO_LOG_INFO;
+	}
+	else {
+		pam_syslog(pamh, LOG_ERR, "Unknown option: %s", name);
+	}
 }
 
 static int get_pam_user(pam_handle_t *pamh, struct options *opts)
