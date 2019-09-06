@@ -1,4 +1,3 @@
-E
 <?xml version="1.0" encoding='UTF-8'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
 	"http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd">
@@ -20,8 +19,8 @@ E
 
     <title>DESCRIPTION</title>
     <para>
-       <emphasis remap='B'>pwquality.conf</emphasis>wquality.conf provides a way to
-       configure the default failed authentication requirements for failed system access.
+       <emphasis remap='B'>faillock.conf</emphasis> provides a way to configure the
+       default settings for locking the user after multiple failed authentication attempts.
        This file is read by the <emphasis>pam_faillock</emphasis> module and is the
        preferred method over configuring <emphasis>pam_faillock</emphasis> directly.
     </para>
