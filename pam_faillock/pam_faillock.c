@@ -297,7 +297,7 @@ read_config_file(pam_handle_t *pamh, struct options *opts, const char *cfgfile)
 
 void set_conf_opt(pam_handle_t *pamh, struct options *opts, const char *name, const char *value)
 {
-	if (strncmp(name, "dir", 3) == 0) {
+	if (strcmp(name, "dir") == 0) {
 		if (value[0] != '/') {
 			pam_syslog(pamh, LOG_ERR,
 				"Tally directory is not absolute path (%s); keeping default", value);
@@ -305,13 +305,13 @@ void set_conf_opt(pam_handle_t *pamh, struct options *opts, const char *name, co
 			opts->dir = value;
 		}
 	}
-	else if (strncmp(name, "deny", 4) == 0) {
+	else if (strcmp(name, "deny") == 0) {
 		if (sscanf(value, "%hu", &opts->deny) != 1) {
 			pam_syslog(pamh, LOG_ERR,
 				"Bad number supplied for deny argument");
 		}
 	}
-	else if (strncmp(name, "fail_interval", 13) == 0) {
+	else if (strcmp(name, "fail_interval") == 0) {
 		unsigned int temp;
 		if (sscanf(value, "%u", &temp) != 1 ||
 			temp > MAX_TIME_INTERVAL) {
@@ -321,7 +321,7 @@ void set_conf_opt(pam_handle_t *pamh, struct options *opts, const char *name, co
 			opts->fail_interval = temp;
 		}
 	}
-	else if (strncmp(name, "unlock_time", 11) == 0) {
+	else if (strcmp(name, "unlock_time") == 0) {
 		unsigned int temp;
 
 		if (strcmp(value, "never") == 0) {
@@ -336,7 +336,7 @@ void set_conf_opt(pam_handle_t *pamh, struct options *opts, const char *name, co
 			opts->unlock_time = temp;
 		}
 	}
-	else if (strncmp(name, "root_unlock_time", 16) == 0) {
+	else if (strcmp(name, "root_unlock_time") == 0) {
 		unsigned int temp;
 
 		if (strcmp(value, "never") == 0) {
@@ -350,7 +350,7 @@ void set_conf_opt(pam_handle_t *pamh, struct options *opts, const char *name, co
 			opts->root_unlock_time = temp;
 		}
 	}
-	else if (strncmp(name, "admin_group", 11) == 0) {
+	else if (strcmp(name, "admin_group") == 0) {
 		opts->admin_group = value;
 	}
 	else if (strcmp(name, "even_deny_root") == 0) {
