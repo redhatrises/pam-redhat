@@ -128,8 +128,10 @@
             </varlistentry>
         </variablelist>
         <para>
-          Options configured on the module command line is not recommend, and
-          <emphasis>/etc/security/faillock.conf</emphasis> should be used instead.
+          The options for configuring the module behavior are described in the 
+          <citerefentry><refentrytitle>faillock.conf</refentrytitle><manvolnum>5</manvolnum>
+          </citerefentry> manual page. The options specified on the module command
+          line override the values from the configuration file.
         </para>
   </refsect1>
 
@@ -176,14 +178,15 @@
   <refsect1 id='pam_faillock-notes'>
     <title>NOTES</title>
     <para>
-      Options configured on the module command line is not recommend, and
+      Configuring options on the module command line is not recommend. The
       <emphasis>/etc/security/faillock.conf</emphasis> should be used instead.
+    </para>
     <para>
-      <emphasis>pam_faillock</emphasis> setup in the PAM stack is different
+      The setup of <emphasis>pam_faillock</emphasis> in the PAM stack is different
       from the <emphasis>pam_tally2</emphasis> module setup.
     </para>
     <para>
-      The individual files with the failure records are created as owned by
+      Individual files with the failure records are created as owned by
       the user. This allows <emphasis remap='B'>pam_faillock.so</emphasis> module
       to work correctly when it is called from a screensaver.
     </para>
@@ -219,8 +222,8 @@
     </para>
     <programlisting>
 deny=4
-even_deny_root
 unlock_time=1200
+silent
     </programlisting>
     <para>
       /etc/pam.d/config file example:
@@ -245,7 +248,8 @@ session  required       pam_selinux.so open
     <para>
       In the second example the module is called both in the <emphasis>auth</emphasis>
       and <emphasis>account</emphasis> phases and the module gives the authenticating
-      user message when the account is locked.
+      user message when the account is locked if <option>silent</option> option is not
+      specified in the <filename>faillock.conf</filename>.
     </para>
     <programlisting>
 auth     required       pam_securetty.so

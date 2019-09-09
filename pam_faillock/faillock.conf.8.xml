@@ -62,9 +62,9 @@
               </term>
               <listitem>
                 <para>
-                  Don't print informative messages. This option is implicit
-                  in the <emphasis>authfail</emphasis> and <emphasis>authsucc</emphasis>
-                  functions.
+                  Don't print informative messages to the user. Please note that when
+                  this option is not used there will be difference in the authentication
+                  behavior for users which exist on the system and non-existing users.
                 </para>
               </listitem>
             </varlistentry>
@@ -179,8 +179,8 @@
     </para>
     <programlisting>
 deny=4
-even_deny_root
 unlock_time=1200
+silent
     </programlisting>
   </refsect1>
 
