@@ -120,64 +120,13 @@ args_parse(pam_handle_t *pamh, int argc, const char **argv,
 	opts->unlock_time = 600;
 	opts->root_unlock_time = MAX_TIME_INTERVAL+1;
 
+	if ((rv=read_config_file(pamh, opts, opts->conf)) != PAM_SUCCESS) {
+		pam_syslog(pamh, LOG_DEBUG,
+					"Configuration file missing");
+	}
+
 	for (i = 0; i < argc; ++i) {
-		if (strncmp(argv[i], "dir=", 4) == 0) {
-			if (argv[i][4] != '/') {
-				pam_syslog(pamh, LOG_ERR,
-					"Tally directory is not absolute path (%s); keeping default", argv[i]);
-			} else {
-				opts->dir = argv[i]+4;
-			}
-		}
-		else if (strncmp(argv[i], "deny=", 5) == 0) {
-			if (sscanf(argv[i]+5, "%hu", &opts->deny) != 1) {
-				pam_syslog(pamh, LOG_ERR,
-					"Bad number supplied for deny argument");
-			}
-		}
-		else if (strncmp(argv[i], "fail_interval=", 14) == 0) {
-			unsigned int temp;
-			if (sscanf(argv[i]+14, "%u", &temp) != 1 ||
-				temp > MAX_TIME_INTERVAL) {
-				pam_syslog(pamh, LOG_ERR,
-					"Bad number supplied for fail_interval argument");
-			} else {
-				opts->fail_interval = temp;
-			}
-		}
-		else if (strncmp(argv[i], "unlock_time=", 12) == 0) {
-			unsigned int temp;
-
-			if (strcmp(argv[i]+12, "never") == 0) {
-				opts->unlock_time = 0;
-			}
-			else if (sscanf(argv[i]+12, "%u", &temp) != 1 ||
-				temp > MAX_TIME_INTERVAL) {
-				pam_syslog(pamh, LOG_ERR,
-					"Bad number supplied for unlock_time argument");
-			}
-			else {
-				opts->unlock_time = temp;
-			}
-		}
-		else if (strncmp(argv[i], "root_unlock_time=", 17) == 0) {
-			unsigned int temp;
-
-			if (strcmp(argv[i]+17, "never") == 0) {
-				opts->root_unlock_time = 0;
-			}
-			else if (sscanf(argv[i]+17, "%u", &temp) != 1 ||
-				temp > MAX_TIME_INTERVAL) {
-				pam_syslog(pamh, LOG_ERR,
-					"Bad number supplied for root_unlock_time argument");
-			} else {
-				opts->root_unlock_time = temp;
-			}
-		}
-		else if (strncmp(argv[i], "admin_group=", 12) == 0) {
-			opts->admin_group = argv[i] + 12;
-		}
-		else if (strcmp(argv[i], "preauth") == 0) {
+		if (strcmp(argv[i], "preauth") == 0) {
 			opts->action = FAILLOCK_ACTION_PREAUTH;
 		}
 		else if (strcmp(argv[i], "authfail") == 0) {
@@ -186,26 +135,23 @@ args_parse(pam_handle_t *pamh, int argc, const char **argv,
 		else if (strcmp(argv[i], "authsucc") == 0) {
 			opts->action = FAILLOCK_ACTION_AUTHSUCC;
 		}
-		else if (strcmp(argv[i], "even_deny_root") == 0) {
-			opts->flags |= FAILLOCK_FLAG_DENY_ROOT;
-		}
-		else if (strcmp(argv[i], "audit") == 0) {
-			opts->flags |= FAILLOCK_FLAG_AUDIT;
-		}
-		else if (strcmp(argv[i], "silent") == 0) {
-			opts->flags |= FAILLOCK_FLAG_SILENT;
-		}
-		else if (strcmp(argv[i], "no_log_info") == 0) {
-			opts->flags |= FAILLOCK_FLAG_NO_LOG_INFO;
-		}
 		else {
-			pam_syslog(pamh, LOG_ERR, "Unknown option: %s", argv[i]);
-		}
-	}
+			char buf[FAILLOCK_CONF_MAX_LINELEN + 1];
+			char *val;
 
-	if ((rv=read_config_file(pamh, opts, opts->conf)) != PAM_SUCCESS) {
-		pam_syslog(pamh, LOG_ERR,
-					"Error opening conf file. Using defaults.");
+			strncpy(buf, argv[i], sizeof(buf) - 1);
+			buf[sizeof(buf) - 1] = '\0';
+
+			val = strchr(buf, '=');
+			if (val != NULL) {
+				*val = '\0';
+				++val;
+			}
+			else {
+				val = buf + sizeof(buf) - 1;
+			}
+			set_conf_opt(pamh, opts, buf, val);
+		}
 	}
 
 	if (opts->root_unlock_time == MAX_TIME_INTERVAL+1)
