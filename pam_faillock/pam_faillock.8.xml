@@ -298,7 +298,7 @@ session  required       pam_selinux.so open
         <refentrytitle>faillock</refentrytitle><manvolnum>8</manvolnum>
       </citerefentry>,
       <citerefentry>
-        <refentrytitle>faillock.conf</refentrytitle><manvolnum>8</manvolnum>
+        <refentrytitle>faillock.conf</refentrytitle><manvolnum>5</manvolnum>
       </citerefentry>,
       <citerefentry>
         <refentrytitle>pam.conf</refentrytitle><manvolnum>5</manvolnum>

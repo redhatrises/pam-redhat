@@ -9,8 +9,8 @@ MAINTAINERCLEANFILES = $(MANS) README
 
 EXTRA_DIST = README $(MANS) $(XMLS) tst-pam_faillock
 
-man_MANS = pam_faillock.8 faillock.8 faillock.conf.8
-XMLS = README.xml pam_faillock.8.xml faillock.8.xml faillock.conf.8.xml
+man_MANS = pam_faillock.8 faillock.8 faillock.conf.5
+XMLS = README.xml pam_faillock.8.xml faillock.8.xml faillock.conf.5.xml
 
 TESTS = tst-pam_faillock
 
