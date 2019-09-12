@@ -73,6 +73,9 @@
 #define FAILLOCK_CONF_MAX_LINELEN 1023
 #define FAILLOCK_ERROR_CONF_OPEN -3
 #define FAILLOCK_ERROR_CONF_MALFORMED -4
+#define DEFAULT_LOCAL_USERS_ONLY 0
+
+#define PATH_PASSWD "/etc/passwd"
 
 struct options {
 	unsigned int action;
@@ -86,6 +89,7 @@ struct options {
 	const char *user;
 	const char *admin_group;
 	int failures;
+	int local_users_only;
 	uint64_t latest_time;
 	uid_t uid;
 	int is_admin;
@@ -119,6 +123,7 @@ args_parse(pam_handle_t *pamh, int argc, const char **argv,
 	opts->fail_interval = 900;
 	opts->unlock_time = 600;
 	opts->root_unlock_time = MAX_TIME_INTERVAL+1;
+	opts->local_users_only = DEFAULT_LOCAL_USERS_ONLY;
 
 	if ((rv=read_config_file(pamh, opts, opts->conf)) != PAM_SUCCESS) {
 		pam_syslog(pamh, LOG_DEBUG,
@@ -311,8 +316,52 @@ void set_conf_opt(pam_handle_t *pamh, struct options *opts, const char *name, co
 	else if (strcmp(name, "no_log_info") == 0) {
 		opts->flags |= FAILLOCK_FLAG_NO_LOG_INFO;
 	}
+	else if (strcmp(name, "local_users_only") == 0) {
+		opts->local_users_only = 1;
+	}
 	else {
 		pam_syslog(pamh, LOG_ERR, "Unknown option: %s", name);
+	}
+}
+
+static int check_local_user (pam_handle_t *pamh, const char *user)
+{
+	struct passwd pw, *pwp;
+	char buf[4096];
+	int found = 0;
+	FILE *fp;
+	int errn;
+
+	fp = fopen(PATH_PASSWD, "r");
+	if (fp == NULL) {
+		pam_syslog(pamh, LOG_ERR, "unable to open %s: %m",
+			   PATH_PASSWD);
+		return -1;
+	}
+
+	for (;;) {
+		errn = fgetpwent_r(fp, &pw, buf, sizeof (buf), &pwp);
+		if (errn == ERANGE) {
+			pam_syslog(pamh, LOG_WARNING, "%s contains very long lines; corrupted?",
+				   PATH_PASSWD);
+			/* we can continue here as next call will read further */
+			continue;
+		}
+		if (errn != 0)
+			break;
+		if (strcmp(pwp->pw_name, user) == 0) {
+			found = 1;
+			break;
+		}
+	}
+
+	fclose (fp);
+
+	if (errn != 0 && errn != ENOENT) {
+		pam_syslog(pamh, LOG_ERR, "unable to enumerate local accounts: %m");
+		return -1;
+	} else {
+		return found;
 	}
 }
 
@@ -615,28 +664,34 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
 		return rv;
 	}
 
-	switch (opts.action) {
-		case FAILLOCK_ACTION_PREAUTH:
-			rv = check_tally(pamh, &opts, &tallies, &fd);
-			if (rv == PAM_AUTH_ERR && !(opts.flags & FAILLOCK_FLAG_SILENT)) {
-				faillock_message(pamh, &opts);
-			}
-                        break;
+	if (opts.local_users_only && check_local_user (pamh, opts.user) == 0) {
+	/* skip the check if a non-local user */
+		rv = 0;
+	} else {
 
-		case FAILLOCK_ACTION_AUTHSUCC:
-			rv = check_tally(pamh, &opts, &tallies, &fd);
-			if (rv == PAM_SUCCESS) {
-				reset_tally(pamh, &opts, &fd);
-			}
-                        break;
+		switch (opts.action) {
+			case FAILLOCK_ACTION_PREAUTH:
+				rv = check_tally(pamh, &opts, &tallies, &fd);
+				if (rv == PAM_AUTH_ERR && !(opts.flags & FAILLOCK_FLAG_SILENT)) {
+					faillock_message(pamh, &opts);
+				}
+				break;
 
-		case FAILLOCK_ACTION_AUTHFAIL:
-			rv = check_tally(pamh, &opts, &tallies, &fd);
-			if (rv == PAM_SUCCESS) {
-				rv = PAM_IGNORE; /* this return value should be ignored */
-				write_tally(pamh, &opts, &tallies, &fd);
-			}
-			break;
+			case FAILLOCK_ACTION_AUTHSUCC:
+				rv = check_tally(pamh, &opts, &tallies, &fd);
+				if (rv == PAM_SUCCESS) {
+					reset_tally(pamh, &opts, &fd);
+				}
+				break;
+
+			case FAILLOCK_ACTION_AUTHFAIL:
+				rv = check_tally(pamh, &opts, &tallies, &fd);
+				if (rv == PAM_SUCCESS) {
+					rv = PAM_IGNORE; /* this return value should be ignored */
+					write_tally(pamh, &opts, &tallies, &fd);
+				}
+				break;
+		}
 	}
 
 	tally_cleanup(&tallies, fd);
@@ -673,8 +728,14 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags,
 		return rv;
 	}
 
-	check_tally(pamh, &opts, &tallies, &fd); /* for auditing */
-	reset_tally(pamh, &opts, &fd);
+	if (opts.local_users_only && check_local_user (pamh, opts.user) == 0) {
+		/* skip the check if a non-local user */
+		rv = 0;
+	} else {
+
+		check_tally(pamh, &opts, &tallies, &fd); /* for auditing */
+		reset_tally(pamh, &opts, &fd);
+	}
 
 	tally_cleanup(&tallies, fd);
 

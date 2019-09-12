@@ -80,6 +80,22 @@
             </varlistentry>
             <varlistentry>
               <term>
+                <option>local_users_only/option>
+              </term>
+              <listitem>
+                <para>
+                  Only track failed user authentications attempts for local users
+                  in /etc/passwd and ignore centralized (AD, IdM, LDAP, etc.) users.
+                  The <citerefentry><refentrytitle>faillock</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                  command will also no longer track user failed
+                  authentication attempts. Enabling this option will prevent a
+                  double-lockout scenario where a user is locked out locally and
+                  in the centralized mechanism.
+                </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
                 <option>deny=<replaceable>n</replaceable></option>
               </term>
               <listitem>
